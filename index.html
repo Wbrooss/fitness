@@ -10,7 +10,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -18,7 +19,7 @@
                 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
                 sans-serif;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            -moz-osx-moz-smoothing: grayscale;
         }
         @media print {
             .no-print { display: none !important; }
@@ -47,13 +48,27 @@
             }
         };
 
-        // Iconos SVG (Mantenidos)
+        // CONSTANTES GLOBALES
+        const INSTRUCTORES = [
+            'Manuel Bailarin',
+            'Cesar Samba',
+            'Tomas Lambada',
+            'Arque Reggaeton'
+        ];
+
+        const HORARIOS = [
+            '8:00 am - 9:00 am',
+            '4:00 pm - 5:00 pm',
+            '6:00 pm - 7:00 pm'
+        ];
+
+        // Iconos SVG (mantenidos)
         const Users = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <path d="M17 21v-2a4 4 4 0 0 0-4-4H5a4 4 4 0 0 0-4 4v2"></path>
                 <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                <path d="M23 21v-2a4 4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 4 0 0 1 0 7.75"></path>
             </svg>
         );
 
@@ -102,16 +117,6 @@
                 <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
         );
-        
-        const Trash = ({ size = 24, className = "" }) => (
-             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M3 6h18"></path>
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                <path d="M10 11v6"></path>
-                <path d="M14 11v6"></path>
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-            </svg>
-        );
 
         const AlertCircle = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
@@ -145,16 +150,538 @@
             </svg>
         );
 
+        const Clock = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        );
+
+        const Award = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <circle cx="12" cy="8" r="7"></circle>
+                <polyline points="8.21 13.89 7 23 12 19 17 23 15.79 13.88"></polyline>
+            </svg>
+        );
+
+        const Trash = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        );
+
+        const Edit = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M17 3a2.828 2.828 2 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+        );
+        
+        // ==========================================================
+        // FUNCIONES GLOBALES DE EXPORTACIÓN
+        // ==========================================================
+
+        const exportarAExcel = () => {
+            // Usamos la misma estructura de datos que se usa para el PDF
+            const data = {
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                asistencias: JSON.parse(localStorage.getItem('asistencias') || '[]'),
+                productos: JSON.parse(localStorage.getItem('productos') || '[]'),
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                pagos: JSON.parse(localStorage.getItem('pagos') || '[]'),
+            };
+
+            const ws_clientes = XLSX.utils.json_to_sheet(data.clientes.map(c => ({
+                ID: c.id,
+                Nombre: c.nombre,
+                Membresia: c.tipoMembresia,
+                'Fecha Registro': new Date(c.fechaRegistro).toLocaleDateString('es-PE')
+            })));
+
+            const ws_asistencias = XLSX.utils.json_to_sheet(data.asistencias.map(a => {
+                const cliente = data.clientes.find(c => c.id === a.clienteId);
+                return {
+                    Cliente: cliente ? cliente.nombre : 'Desconocido',
+                    Fecha: new Date(a.fecha).toLocaleDateString('es-PE'),
+                    'Hora Registro': a.horaRegistro,
+                    Instructor: a.instructor,
+                    Horario: a.horario,
+                    'Monto Cobrado': a.montoCobrado,
+                };
+            }));
+
+            const ws_pagos = XLSX.utils.json_to_sheet(data.pagos.map(p => {
+                const cliente = data.clientes.find(c => c.id === p.clienteId);
+                return {
+                    Cliente: cliente ? cliente.nombre : 'Desconocido',
+                    Tipo: p.tipo,
+                    Monto: p.monto,
+                    Fecha: new Date(p.fecha).toLocaleDateString('es-PE'),
+                    Descripcion: p.descripcion
+                };
+            }));
+
+            const ws_ventas = XLSX.utils.json_to_sheet(data.ventas.map(v => {
+                const cliente = data.clientes.find(c => c.id === v.clienteId);
+                const producto = data.productos.find(p => p.id === v.productoId);
+                return {
+                    Cliente: cliente ? cliente.nombre : 'Desconocido',
+                    Producto: producto ? producto.nombre : 'Desconocido',
+                    Cantidad: v.cantidad,
+                    Total: v.total,
+                    Fecha: new Date(v.fecha).toLocaleDateString('es-PE')
+                };
+            }));
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws_clientes, "Clientes");
+            XLSX.utils.book_append_sheet(wb, ws_asistencias, "Asistencias");
+            XLSX.utils.book_append_sheet(wb, ws_pagos, "Pagos");
+            XLSX.utils.book_append_sheet(wb, ws_ventas, "Ventas");
+
+            XLSX.writeFile(wb, "Reporte_General_Fitness.xlsx");
+        };
+
+        const exportarAPDF = () => {
+            // Definición de getAttendanceDateString (necesaria para el PDF diario)
+            const getAttendanceDateString = (dateISO) => {
+                if (!dateISO) return null;
+                return dateISO.substring(0, 10);
+            }
+            
+            // Asistencia siempre se registra para la fecha de hoy
+            const selectedDate = new Date().toISOString().split('T')[0];
+            const data = {
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                asistencias: JSON.parse(localStorage.getItem('asistencias') || '[]'),
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                pagos: JSON.parse(localStorage.getItem('pagos') || '[]'),
+                productos: JSON.parse(localStorage.getItem('productos') || '[]'),
+            };
+            
+            const asistenciasHoy = data.asistencias.filter(a => 
+                getAttendanceDateString(a.fecha) === selectedDate
+            ).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+            const ventasHoy = data.ventas.filter(v => 
+                getAttendanceDateString(v.fecha) === selectedDate
+            );
+            
+            const pagosHoy = data.pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === selectedDate
+            );
+
+            const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+            const totalIngresos = totalVentasHoy + totalPagosHoy;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const margin = 15;
+            let y = margin;
+            const pageWidth = doc.internal.pageSize.width;
+            
+            // Título
+            doc.setFontSize(18);
+            doc.text(`Reporte Diario - ${selectedDate}`, pageWidth / 2, y, { align: 'center' });
+            y += 10;
+            
+            // Resumen de ingresos
+            doc.setFontSize(12);
+            doc.text(`💰 Ingreso Total: S/. ${totalIngresos.toFixed(2)}`, margin, y);
+            doc.text(`👥 Asistencias: ${asistenciasHoy.length}`, pageWidth / 2, y);
+            y += 7;
+            doc.text(`💵 Pagos Clases/Mensualidad: S/. ${totalPagosHoy.toFixed(2)}`, margin, y);
+            doc.text(`🛒 Ventas Productos: S/. ${totalVentasHoy.toFixed(2)}`, pageWidth / 2, y);
+            y += 10;
+            
+            // Tabla de Asistencias
+            doc.setFontSize(14);
+            doc.text("Detalle de Asistencias", margin, y);
+            y += 5;
+
+            const asistenciasBody = asistenciasHoy.map(a => {
+                const cliente = data.clientes.find(c => c.id === a.clienteId);
+                return [
+                    cliente ? cliente.nombre : 'Desconocido',
+                    a.instructor,
+                    a.horario,
+                    a.montoCobrado.toFixed(2),
+                    a.esSegundaClaseDelDia ? 'Sí' : 'No',
+                ];
+            });
+
+            doc.autoTable({
+                startY: y,
+                head: [['Cliente', 'Instructor', 'Horario', 'Monto (S/.)', '2da Clase']],
+                body: asistenciasBody,
+                theme: 'grid',
+                headStyles: { fillColor: [126, 34, 206] }
+            });
+            y = doc.autoTable.previous.finalY + 10;
+            
+            // Tabla de Ventas
+            doc.setFontSize(14);
+            doc.text("Detalle de Ventas de Productos", margin, y);
+            y += 5;
+
+            const ventasBody = ventasHoy.map(v => {
+                const cliente = data.clientes.find(c => c.id === v.clienteId);
+                const producto = data.productos.find(p => p.id === v.productoId);
+                return [
+                    cliente ? cliente.nombre : 'Desconocido',
+                    producto ? producto.nombre : 'Desconocido',
+                    v.cantidad,
+                    v.total.toFixed(2)
+                ];
+            });
+            
+            doc.autoTable({
+                startY: y,
+                head: [['Cliente', 'Producto', 'Cantidad', 'Total (S/.)']],
+                body: ventasBody,
+                theme: 'grid',
+                headStyles: { fillColor: [6, 78, 59] }
+            });
+
+            doc.save(`Reporte_Diario_${selectedDate}.pdf`);
+        };
+        // FIN FUNCIONES GLOBALES DE EXPORTACIÓN
+        
+        // ==========================================================
+        // NUEVO COMPONENTE: Gráfico con Chart.js
+        // ==========================================================
+        const DashboardChart = ({ type, data, options, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                // Destruir el gráfico anterior si existe
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                if (canvasRef.current) {
+                    const ctx = canvasRef.current.getContext('2d');
+                    
+                    // Crear el nuevo gráfico
+                    chartRef.current = new Chart(ctx, {
+                        type: type,
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title,
+                                    font: { size: 16, weight: 'bold' }
+                                },
+                                legend: {
+                                    position: type === 'doughnut' ? 'right' : 'top',
+                                }
+                            },
+                            ...options // Opciones personalizadas
+                        },
+                    });
+                }
+
+                // Función de limpieza al desmontar
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [type, data, options, title]); // Re-ejecutar si cambian los datos o el tipo
+
+            return (
+                <div className="p-4 bg-white rounded-lg shadow-md h-96">
+                    <canvas ref={canvasRef}></canvas>
+                </div>
+            );
+        };
+        
+        // ==========================================================
+        // LÓGICA DE GRÁFICOS (KPIs)
+        // ==========================================================
+        
+        // Función para obtener un rango de fechas de los últimos N días
+        const getFechaRango = (days) => {
+            const dates = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                dates.push(d.toISOString().split('T')[0]);
+            }
+            return dates;
+        }
+
+        // KPI 1: Ingresos Diarios Totales (Últimos 30 días)
+        const procesarIngresosDiarios = (pagos, ventas) => {
+            const last30Days = getFechaRango(30);
+            const ingresosPorDia = {};
+            
+            // Inicializar cada día con 0
+            last30Days.forEach(date => {
+                ingresosPorDia[date] = 0;
+            });
+
+            // Agregar pagos
+            pagos.forEach(p => {
+                const date = p.fecha ? p.fecha.substring(0, 10) : null;
+                if (date && ingresosPorDia.hasOwnProperty(date)) {
+                    ingresosPorDia[date] += p.monto;
+                }
+            });
+
+            // Agregar ventas
+            ventas.forEach(v => {
+                const date = v.fecha ? v.fecha.substring(0, 10) : null;
+                if (date && ingresosPorDia.hasOwnProperty(date)) {
+                    ingresosPorDia[date] += v.total;
+                }
+            });
+
+            const labels = last30Days.map(date => {
+                const [year, month, day] = date.split('-');
+                return `${day}/${month}`;
+            });
+            const dataValues = last30Days.map(date => ingresosPorDia[date]);
+
+            return {
+                labels: labels,
+                datasets: [{
+                    label: 'Ingreso Diario Total (S/.)',
+                    data: dataValues,
+                    borderColor: 'rgb(126, 34, 206)', // Púrpura
+                    backgroundColor: 'rgba(126, 34, 206, 0.5)',
+                    tension: 0.3,
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 3
+                }]
+            };
+        };
+        
+        // KPI 2: Ingresos por Fuente (Total histórico)
+        const procesarIngresosPorFuente = (pagos, ventas) => {
+            let totalMensualidad = 0;
+            let totalClase = 0; // Incluye clase normal y clase extra mensualidad
+            let totalProductos = 0;
+            
+            pagos.forEach(p => {
+                if (p.tipo === 'mensualidad') {
+                    totalMensualidad += p.monto;
+                } else if (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad') {
+                    totalClase += p.monto;
+                }
+            });
+            
+            ventas.forEach(v => {
+                totalProductos += v.total;
+            });
+            
+            return {
+                labels: ['Mensualidades', 'Clases', 'Ventas de Productos'],
+                datasets: [{
+                    data: [totalMensualidad, totalClase, totalProductos],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.8)', // Azul/Verde (Mensualidad)
+                        'rgba(255, 99, 132, 0.8)',  // Rojo (Clases)
+                        'rgba(255, 205, 86, 0.8)'   // Amarillo (Productos)
+                    ],
+                    borderColor: [
+                        'rgb(75, 192, 192)',
+                        'rgb(255, 99, 132)',
+                        'rgb(255, 205, 86)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+        };
+
+        // KPI 3: Clientes Mensuales Activos vs. Inactivos (Gráfico de Dona)
+        const procesarEstadoMensual = (clientes, pagos) => {
+            // Helper function to get Vencimiento date (redefined locally as it depends on `pagos`)
+            const getFechaVencimientoLocal = (clienteId) => {
+                const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Más reciente primero
+
+                if (pagosMensuales.length === 0) return null;
+
+                const ultimoPagoDate = new Date(pagosMensuales[0].fecha.substring(0, 10) + 'T12:00:00');
+                const fechaVencimiento = new Date(ultimoPagoDate);
+                fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1);
+                fechaVencimiento.setDate(fechaVencimiento.getDate() - 1); 
+                
+                return fechaVencimiento;
+            }
+
+            const clientesMensuales = clientes.filter(c => c.tipoMembresia === 'mensual');
+            const hoy = new Date(new Date().toISOString().split('T')[0] + 'T12:00:00');
+            let activos = 0;
+            let inactivos = 0;
+
+            clientesMensuales.forEach(cliente => {
+                const fechaVencimiento = getFechaVencimientoLocal(cliente.id);
+                if (fechaVencimiento && hoy <= fechaVencimiento) {
+                    activos++;
+                } else {
+                    inactivos++;
+                }
+            });
+
+            return {
+                labels: [`Activos (${activos})`, `Inactivos (${inactivos})`],
+                datasets: [{
+                    data: [activos, inactivos],
+                    backgroundColor: [
+                        'rgba(52, 211, 153, 0.8)', // Verde (Activos)
+                        'rgba(248, 113, 113, 0.8)'  // Rojo (Inactivos)
+                    ],
+                    borderColor: [
+                        'rgb(52, 211, 153)',
+                        'rgb(248, 113, 113)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+        };
+
+        // KPI 4: Cálculo de la Tasa de Renovación Mensual
+        const calcularTasaRenovacion = (clientes, pagos) => {
+            const hoy = new Date();
+            // 1. Definir el mes objetivo: Mes anterior
+            const mesPasado = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+            const primerDiaMesPasado = new Date(mesPasado.getFullYear(), mesPasado.getMonth(), 1, 12);
+            const ultimoDiaMesPasado = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 12); 
+
+            // 2. Clientes que debieron renovar: Tuvieron membresía activa en el mes pasado
+            const clientesPotenciales = new Set();
+            pagos.filter(p => p.tipo === 'mensualidad').forEach(p => {
+                const fechaPago = new Date(p.fecha.substring(0, 10) + 'T12:00:00');
+                
+                // La membresía cubre el mes siguiente al pago
+                const fechaInicio = new Date(fechaPago.getFullYear(), fechaPago.getMonth(), 1, 12);
+                
+                const fechaFin = new Date(fechaPago);
+                fechaFin.setMonth(fechaFin.getMonth() + 1);
+                fechaFin.setDate(fechaFin.getDate() - 1); 
+                fechaFin.setHours(12);
+
+                // Si la membresía estaba activa en algún momento del mes pasado (i.e., el rango de pago cubre el mes pasado)
+                if (fechaFin >= primerDiaMesPasado && fechaInicio <= ultimoDiaMesPasado) {
+                    clientesPotenciales.add(p.clienteId);
+                }
+            });
+            
+            const countClientesPotenciales = clientesPotenciales.size;
+
+            if (countClientesPotenciales === 0) {
+                return { tasa: 0, renovaron: 0, potenciales: 0, mensaje: "No hay datos de renovaciones del mes pasado." };
+            }
+
+            // 3. Clientes que renovaron: Tuvieron un pago de mensualidad *en el mes actual*
+            const primerDiaMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 12);
+            
+            const pagosEsteMes = pagos.filter(p => 
+                p.tipo === 'mensualidad' && 
+                new Date(p.fecha.substring(0, 10) + 'T12:00:00') >= primerDiaMesActual
+            );
+
+            const clientesQueRenovaron = new Set();
+            pagosEsteMes.forEach(p => {
+                // Solo contamos a los que renovaron y eran potenciales (asumiendo que si pagaron, renovaron)
+                if (clientesPotenciales.has(p.clienteId)) {
+                    clientesQueRenovaron.add(p.clienteId);
+                }
+            });
+            
+            const countClientesQueRenovaron = clientesQueRenovaron.size;
+            
+            const tasa = (countClientesQueRenovaron / countClientesPotenciales) * 100;
+
+            return { 
+                tasa: tasa.toFixed(2), 
+                renovaron: countClientesQueRenovaron, 
+                potenciales: countClientesPotenciales,
+                mensaje: `Base de ${countClientesPotenciales} clientes potenciales a renovar (que tuvieron mensualidad en el mes pasado).`
+            };
+        };
+
+        // ==========================================================
+        // COMPONENTES AUXILIARES
+        // ==========================================================
+        
+        // COMPONENTE: Modal genérico
+        const Modal = ({ title, children, onClose }) => (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                    <div className="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800">
+                            <X size={24} />
+                        </button>
+                    </div>
+                    {children}
+                </div>
+            </div>
+        );
+
+        // COMPONENTE: Botón de Pestaña
+        const TabButton = ({ id, icon: Icon, label, count = 0, activeTab, setActiveTab }) => (
+            <button
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    activeTab === id
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+                <Icon size={20} />
+                {label}
+                {count > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ml-1">{count}</span>
+                )}
+            </button>
+        );
+
+
+        // ==========================================================
+        // APLICACIÓN PRINCIPAL
+        // ==========================================================
         function FitnessManagementApp() {
             const [activeTab, setActiveTab] = useState('asistencia');
             const [clientes, setClientes] = useState([]);
             const [asistencias, setAsistencias] = useState([]);
             const [productos, setProductos] = useState([
-                { id: 1, nombre: 'Batido Fórmula 1 - Vainilla', precio: 450, stock: 15 },
-                { id: 2, nombre: 'Batido Fórmula 1 - Chocolate', precio: 450, stock: 12 },
-                { id: 3, nombre: 'Té Concentrado', precio: 380, stock: 8 },
-                { id: 4, nombre: 'Aloe Vera', precio: 320, stock: 10 },
-                { id: 5, nombre: 'Proteína en Polvo', precio: 520, stock: 6 }
+                { id: 1, nombre: 'TÉ', precio: 8, stock: 20 },
+                { id: 2, nombre: 'ALOE', precio: 8, stock: 20 },
+                { id: 3, nombre: 'FIBRA', precio: 8, stock: 20 },
+                { id: 4, nombre: 'CHUPAPANZA', precio: 21, stock: 20 },
+                { id: 5, nombre: 'AGUA MINERAL 1L', precio: 3.5, stock: 20 },
+                { id: 6, nombre: 'AGUA MINERAL 1/2 L', precio: 2, stock: 20 },
+                { id: 7, nombre: 'BIO', precio: 3.5, stock: 20 },
+                { id: 8, nombre: 'KERO', precio: 3.5, stock: 20 },
+                { id: 9, nombre: 'GATORADE', precio: 3, stock: 20 },
+                { id: 10, nombre: 'OMEGA', precio: 4, stock: 20 },
+                { id: 11, nombre: 'BEVERAGE', precio: 8, stock: 20 },
+                { id: 12, nombre: 'PDM', precio: 8, stock: 20 },
+                { id: 13, nombre: 'BATIDO', precio: 10, stock: 20 },
+                { id: 14, nombre: 'PROTEÍNA', precio: 12, stock: 20 },
+                { id: 15, nombre: 'GALLETA', precio: 3, stock: 20 },
+                { id: 16, nombre: 'DESODORANTE', precio: 1.5, stock: 20 },
+                { id: 17, nombre: 'P.H', precio: 2, stock: 20 },
+                { id: 18, nombre: 'T.H', precio: 1, stock: 20 },
+                { id: 19, nombre: 'HIDRATANTE', precio: 3.5, stock: 20 },
+                { id: 20, nombre: 'CALCIO', precio: 2, stock: 20 },
+                { id: 21, nombre: 'MULTIVITAMINICO', precio: 2, stock: 20 },
+                { id: 22, nombre: 'COLAGENO', precio: 10, stock: 20 },
+                { id: 23, nombre: 'RNG', precio: 8, stock: 20 },
+                { id: 24, nombre: 'YOGURT', precio: 5, stock: 20 }
             ]);
             const [ventas, setVentas] = useState([]);
             const [pagos, setPagos] = useState([]);
@@ -162,16 +689,25 @@
             const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
             const [showAddCliente, setShowAddCliente] = useState(false);
             
-            // Estado para la fecha seleccionada (formato YYYY-MM-DD)
-            const todayISO = new Date().toISOString().split('T')[0];
-            const [selectedDate, setSelectedDate] = useState(todayISO); 
+            const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().split('T')[0]);
+            
+            // ESTADOS de Asistencia (Fecha de trabajo principal)
+            const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+            const [selectedInstructor, setSelectedInstructor] = useState(INSTRUCTORES[0]);
+            const [selectedHorario, setSelectedHorario] = useState(HORARIOS[0]);
+            
+            // ESTADOS de Edición
+            const [editingAttendanceId, setEditingAttendanceId] = useState(null);
+            const [editInstructor, setEditInstructor] = useState('');
+            const [editHorario, setEditHorario] = useState('');
+            
+            // ESTADOS de Ventas (NUEVOS - Punto 2 y 3)
+            const [searchClientVenta, setSearchClientVenta] = useState('');
+            // Usamos String para consistencia con los valores del select (aunque ya no se usa)
+            const [selectedClientVentaId, setSelectedClientVentaId] = useState(''); 
+            const [searchProductoVenta, setSearchProductoVenta] = useState('');
+            const [carrito, setCarrito] = useState([]); // [{ productId, quantity, price, nombre }]
 
-            // Estados para la nueva lógica de ventas
-            const [searchVentaCliente, setSearchVentaCliente] = useState('');
-            const [selectedVentaClienteId, setSelectedVentaClienteId] = useState(null);
-            const [searchVentaProducto, setSearchVentaProducto] = useState('');
-            const [currentSaleItems, setCurrentSaleItems] = useState([]); // { productoId, cantidad, nombre, precio, total }
-            const clienteSearchRef = useRef(null);
 
             // Cargar datos al iniciar
             useEffect(() => {
@@ -185,17 +721,53 @@
 
                         if (clientesRes) setClientes(JSON.parse(clientesRes.value));
                         if (asistenciasRes) setAsistencias(JSON.parse(asistenciasRes.value));
-                        if (productosRes) setProductos(JSON.parse(productosRes.value));
+                        
+                        // Lógica para inicializar productos si no hay datos guardados
+                        const initialProducts = [
+                            { id: 1, nombre: 'TÉ', precio: 8, stock: 20 },
+                            { id: 2, nombre: 'ALOE', precio: 8, stock: 20 },
+                            { id: 3, nombre: 'FIBRA', precio: 8, stock: 20 },
+                            { id: 4, nombre: 'CHUPAPANZA', precio: 21, stock: 20 },
+                            { id: 5, nombre: 'AGUA MINERAL 1L', precio: 3.5, stock: 20 },
+                            { id: 6, nombre: 'AGUA MINERAL 1/2 L', precio: 2, stock: 20 },
+                            { id: 7, nombre: 'BIO', precio: 3.5, stock: 20 },
+                            { id: 8, nombre: 'KERO', precio: 3.5, stock: 20 },
+                            { id: 9, nombre: 'GATORADE', precio: 3, stock: 20 },
+                            { id: 10, nombre: 'OMEGA', precio: 4, stock: 20 },
+                            { id: 11, nombre: 'BEVERAGE', precio: 8, stock: 20 },
+                            { id: 12, nombre: 'PDM', precio: 8, stock: 20 },
+                            { id: 13, nombre: 'BATIDO', precio: 10, stock: 20 },
+                            { id: 14, nombre: 'PROTEÍNA', precio: 12, stock: 20 },
+                            { id: 15, nombre: 'GALLETA', precio: 3, stock: 20 },
+                            { id: 16, nombre: 'DESODORANTE', precio: 1.5, stock: 20 },
+                            { id: 17, nombre: 'P.H', precio: 2, stock: 20 },
+                            { id: 18, nombre: 'T.H', precio: 1, stock: 20 },
+                            { id: 19, nombre: 'HIDRATANTE', precio: 3.5, stock: 20 },
+                            { id: 20, nombre: 'CALCIO', precio: 2, stock: 20 },
+                            { id: 21, nombre: 'MULTIVITAMINICO', precio: 2, stock: 20 },
+                            { id: 22, nombre: 'COLAGENO', precio: 10, stock: 20 },
+                            { id: 23, nombre: 'RNG', precio: 8, stock: 20 },
+                            { id: 24, nombre: 'YOGURT', precio: 5, stock: 20 }
+                        ];
+
+                        if (productosRes) {
+                            const storedProductos = JSON.parse(productosRes.value);
+                            setProductos(storedProductos.length > 0 ? storedProductos : initialProducts);
+                        } else {
+                            setProductos(initialProducts);
+                        }
+
                         if (ventasRes) setVentas(JSON.parse(ventasRes.value));
                         if (pagosRes) setPagos(JSON.parse(pagosRes.value));
                     } catch (error) {
-                        console.log('Cargando datos iniciales');
+                        console.log('Cargando datos iniciales', error);
+                        setProductos(productos); 
                     }
                 };
                 loadData();
             }, []);
 
-            // Guardar datos automáticamente (Mantenido)
+            // Guardar datos automáticamente
             useEffect(() => {
                 storage.set('clientes', JSON.stringify(clientes));
             }, [clientes]);
@@ -216,522 +788,476 @@
                 storage.set('pagos', JSON.stringify(pagos));
             }, [pagos]);
 
-            // Helper para formatear la fecha a un string de comparación (e.g., '19/11/2025')
-            const formatDateForFilter = (dateStr) => {
-                if (!dateStr) return '';
-                // Asegura que la cadena ISO o Date se convierta a la misma representación local (sin hora)
-                return new Date(dateStr).toLocaleDateString('es-PE');
-            };
-
-            // Variables basadas en la fecha seleccionada
-            const dateToFilter = formatDateForFilter(selectedDate);
-            const asistenciasDelDia = asistencias.filter(a => 
-                formatDateForFilter(a.fecha) === dateToFilter
-            );
-            const ventasDelDia = ventas.filter(v => 
-                formatDateForFilter(v.fecha) === dateToFilter
-            );
-            const pagosDelDia = pagos.filter(p => 
-                formatDateForFilter(p.fecha) === dateToFilter
-            );
-
-            const totalVentasDelDia = ventasDelDia.reduce((sum, v) => sum + v.total, 0);
-            const totalPagosDelDia = pagosDelDia.reduce((sum, p) => sum + p.monto, 0);
-            const totalIngresosDelDia = totalVentasDelDia + totalPagosDelDia;
+            // Funciones de utilidad para fechas
+            const getAttendanceDateString = (dateISO) => {
+                if (!dateISO) return null;
+                return dateISO.substring(0, 10);
+            }
             
-            // -------------------------------------------------------------------------
-            // Funciones de Exportación (PDF Corregido y usando variables DelDia)
-            // -------------------------------------------------------------------------
-
-            const exportarAExcel = () => {
-                // ... (lógica de exportación a Excel se mantiene igual)
-                const wb = XLSX.utils.book_new();
-
-                // Hoja de Clientes
-                const clientesData = clientes.map(c => ({
-                    Nombre: c.nombre,
-                    Tipo: c.tipoMembresia === 'mensual' ? 'Mensual' : 'Por Clase',
-                    'Fecha Registro': new Date(c.fechaRegistro).toLocaleDateString('es-PE')
-                }));
-                const wsClientes = XLSX.utils.json_to_sheet(clientesData);
-                XLSX.utils.book_append_sheet(wb, wsClientes, "Clientes");
-
-                // Hoja de Asistencias
-                const asistenciasData = asistencias.map(a => {
-                    const cliente = clientes.find(c => c.id === a.clienteId);
-                    return {
-                        Cliente: cliente?.nombre,
-                        Fecha: a.fechaFormato,
-                        'Segunda Clase': a.esSegundaClaseDelDia ? 'Sí' : 'No',
-                        Monto: `S/. ${a.montoCobrado}`
-                    };
+            const getDisplayDate = (dateString) => {
+                const date = new Date(dateString + 'T12:00:00'); 
+                return date.toLocaleDateString('es-PE', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
                 });
-                const wsAsistencias = XLSX.utils.json_to_sheet(asistenciasData);
-                XLSX.utils.book_append_sheet(wb, wsAsistencias, "Asistencias");
+            }
 
-                // Hoja de Ventas
-                const ventasData = ventas.map(v => {
-                    const cliente = clientes.find(c => c.id === v.clienteId);
-                    const producto = productos.find(p => p.id === v.productoId);
-                    return {
-                        Cliente: cliente?.nombre,
-                        Producto: producto?.nombre,
-                        Cantidad: v.cantidad,
-                        Total: `S/. ${v.total}`,
-                        Fecha: v.fechaFormato
-                    };
-                });
-                const wsVentas = XLSX.utils.json_to_sheet(ventasData);
-                XLSX.utils.book_append_sheet(wb, wsVentas, "Ventas");
+            // FUNCIÓN: Encontrar la fecha de vencimiento de la última mensualidad
+            const getFechaVencimiento = (clienteId) => {
+                const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Más reciente primero
 
-                // Hoja de Pagos
-                const pagosData = pagos.map(p => {
-                    const cliente = clientes.find(c => c.id === p.clienteId);
-                    return {
-                        Cliente: cliente?.nombre,
-                        Tipo: p.tipo === 'clase' ? 'Clase' : 'Mensualidad',
-                        Descripción: p.descripcion,
-                        Monto: `S/. ${p.monto}`,
-                        Fecha: p.fechaFormato
-                    };
-                });
-                const wsPagos = XLSX.utils.json_to_sheet(pagosData);
-                XLSX.utils.book_append_sheet(wb, wsPagos, "Pagos");
+                if (pagosMensuales.length === 0) return null;
 
-                // Hoja de Inventario
-                const inventarioData = productos.map(p => ({
-                    Producto: p.nombre,
-                    Precio: `S/. ${p.precio}`,
-                    Stock: p.stock
-                }));
-                const wsInventario = XLSX.utils.json_to_sheet(inventarioData);
-                XLSX.utils.book_append_sheet(wb, wsInventario, "Inventario");
-
-                XLSX.writeFile(wb, `Sistema_Fitness_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`);
-            };
-
-
-            const exportarAPDF = () => {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
+                const ultimoPagoDate = new Date(pagosMensuales[0].fecha.substring(0, 10) + 'T12:00:00');
+                const fechaVencimiento = new Date(ultimoPagoDate);
+                fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1);
+                // Ajustar al día anterior (ej. si pagó el 1 de Sep, vence el 30 de Sep)
+                fechaVencimiento.setDate(fechaVencimiento.getDate() - 1); 
                 
-                // Usar la fecha seleccionada para el reporte
-                const fechaReporte = formatDateForFilter(selectedDate);
+                return fechaVencimiento;
+            }
+
+            // FUNCIÓN: Verificar si la mensualidad está activa para una fecha dada (selectedAttendanceDate)
+            const isMensualidadActivaEnFecha = (clienteId, dateString) => {
+                const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad');
                 
-                // Título
-                doc.setFontSize(18);
-                doc.text('Reporte Diario - Sistema Fitness', 20, 20);
-                
-                doc.setFontSize(12);
-                doc.text(`Fecha: ${fechaReporte}`, 20, 30);
-                
-                // Resumen (Usando variables DelDia)
-                let y = 45;
-                doc.setFontSize(14);
-                doc.text('Resumen del Día', 20, y);
-                doc.setFontSize(11);
-                y += 10;
-                doc.text(`Asistencias: ${asistenciasDelDia.length}`, 20, y);
-                y += 7;
-                doc.text(`Ingresos por clases: S/. ${totalPagosDelDia.toFixed(2)}`, 20, y);
-                y += 7;
-                doc.text(`Ventas de productos: S/. ${totalVentasDelDia.toFixed(2)}`, 20, y);
-                y += 7;
-                doc.text(`Total ingresos: S/. ${(totalPagosDelDia + totalVentasDelDia).toFixed(2)}`, 20, y);
+                // Convertir la fecha de asistencia a objeto Date (fijando la hora para evitar TZ)
+                const targetDate = new Date(dateString + 'T12:00:00');
 
-                y += 15; // Posición de inicio para la primera tabla
+                // Encontrar el último pago de mensualidad *antes o en* la fecha de asistencia
+                const ultimoPagoRelevante = pagosMensuales
+                    .filter(p => new Date(p.fecha.substring(0, 10) + 'T12:00:00') <= targetDate)
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
 
-                // --- ASISTENCIAS DEL DÍA (Usando autoTable) ---
-                doc.setFontSize(14);
-                doc.text('Asistencias del Día', 20, y);
-                
-                const asistenciasHeaders = [['Cliente', 'Pago', 'Hora']];
-                const asistenciasBody = asistenciasDelDia.map(a => {
-                    const cliente = clientes.find(c => c.id === a.clienteId);
-                    const hora = a.fechaFormato.split(', ')[1]; 
-                    return [
-                        cliente?.nombre || 'Desconocido',
-                        a.montoCobrado > 0 ? `S/. ${a.montoCobrado.toFixed(2)}` : 'Mensualidad',
-                        hora
-                    ];
-                });
+                if (!ultimoPagoRelevante) return false;
 
-                doc.autoTable({
-                    startY: y + 5, 
-                    head: asistenciasHeaders,
-                    body: asistenciasBody,
-                    theme: 'striped',
-                    styles: { fontSize: 9, cellPadding: 2 },
-                    headStyles: { fillColor: [100, 50, 150] } 
-                });
+                // Calcular la fecha de vencimiento de ese pago relevante
+                const fechaVencimiento = getFechaVencimiento(clienteId);
 
-                y = doc.autoTable.previous.finalY + 10; 
+                // La mensualidad está activa si la fecha de asistencia es menor o igual a la fecha de vencimiento
+                return fechaVencimiento && targetDate <= fechaVencimiento;
+            }
 
-                // --- VENTAS DEL DÍA (Usando autoTable) ---
-                doc.setFontSize(14);
-                doc.text('Ventas del Día', 20, y);
-
-                const ventasHeaders = [['Cliente', 'Producto', 'Cant.', 'Total', 'Hora']];
-                const ventasBody = ventasDelDia.map(v => {
-                    const cliente = clientes.find(c => c.id === v.clienteId);
-                    const producto = productos.find(p => p.id === v.productoId);
-                    const hora = v.fechaFormato.split(', ')[1];
-                    return [
-                        cliente?.nombre || 'Desconocido',
-                        producto?.nombre || 'Desconocido',
-                        v.cantidad,
-                        `S/. ${v.total.toFixed(2)}`,
-                        hora
-                    ];
-                });
-
-                doc.autoTable({
-                    startY: y + 5,
-                    head: ventasHeaders,
-                    body: ventasBody,
-                    theme: 'striped',
-                    styles: { fontSize: 9, cellPadding: 2 },
-                    headStyles: { fillColor: [40, 167, 69] }
-                });
-
-                doc.save(`Reporte_${fechaReporte.replace(/\//g, '-')}.pdf`);
-            }; 
-            
-            // -------------------------------------------------------------------------
-            // Lógica de Venta de Productos (Mantenida)
-            // -------------------------------------------------------------------------
-            
-            const handleAddSaleItem = (productoId, cantidadStr) => {
-                // Validación para no permitir ventas en fechas futuras
-                if (selectedDate !== todayISO) {
-                    alert('Solo puedes registrar ventas para el día de HOY.');
-                    return;
-                }
-
-                const cantidad = parseInt(cantidadStr) || 1;
-                const producto = productos.find(p => p.id === productoId);
-
-                if (!producto || cantidad <= 0 || producto.stock < cantidad) {
-                    alert('Cantidad inválida o stock insuficiente.');
-                    return;
-                }
-
-                const existingItemIndex = currentSaleItems.findIndex(item => item.productoId === productoId);
-
-                if (existingItemIndex !== -1) {
-                    // Actualizar cantidad si ya existe
-                    const updatedItems = currentSaleItems.map((item, index) => 
-                        index === existingItemIndex
-                            ? { ...item, cantidad: item.cantidad + cantidad, total: (item.cantidad + cantidad) * item.precio }
-                            : item
-                    );
-                    setCurrentSaleItems(updatedItems);
-                } else {
-                    // Agregar nuevo ítem
-                    setCurrentSaleItems([...currentSaleItems, {
-                        productoId,
-                        cantidad,
-                        nombre: producto.nombre,
-                        precio: producto.precio,
-                        total: cantidad * producto.precio
-                    }]);
-                }
-            };
-
-            const handleRemoveSaleItem = (productoId) => {
-                setCurrentSaleItems(currentSaleItems.filter(item => item.productoId !== productoId));
-            };
-
-            const finalizarVenta = () => {
-                // Validación final para no permitir ventas en fechas futuras
-                if (selectedDate !== todayISO) {
-                    alert('Solo puedes finalizar ventas para el día de HOY.');
-                    return;
-                }
-                
-                const cliente = clientes.find(c => c.id === selectedVentaClienteId);
-                
-                if (!cliente) {
-                    alert('Debes seleccionar un cliente.');
-                    return;
-                }
-                if (currentSaleItems.length === 0) {
-                    alert('Agrega al menos un producto a la venta.');
-                    return;
-                }
-
-                const clienteId = selectedVentaClienteId;
-                const nowISO = new Date().toISOString();
-                const nowFormat = new Date().toLocaleString('es-PE', { 
-                    day: '2-digit', 
-                    month: '2-digit', 
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-
-                const newVentas = [];
-                // Usamos un mapa para actualizar el stock de manera eficiente
-                const updatedProductosMap = new Map(productos.map(p => [p.id, { ...p }]));
-
-                currentSaleItems.forEach(item => {
-                    const producto = updatedProductosMap.get(item.productoId);
-
-                    // 1. Registrar Venta (Individualmente como estaba en la lógica original)
-                    newVentas.push({
-                        id: Date.now() + newVentas.length, 
-                        productoId: item.productoId,
-                        clienteId,
-                        cantidad: item.cantidad,
-                        total: item.total,
-                        fecha: nowISO,
-                        fechaFormato: nowFormat
-                    });
-
-                    // 2. Actualizar Stock
-                    if (producto) {
-                        producto.stock -= item.cantidad;
-                        updatedProductosMap.set(producto.id, producto);
-                    }
-                });
-
-                // 3. Update states
-                setVentas(prevVentas => [...newVentas, ...prevVentas]);
-                setProductos(Array.from(updatedProductosMap.values()));
-                
-                // 4. Reset form
-                setCurrentSaleItems([]);
-                setSelectedVentaClienteId(null);
-                setSearchVentaCliente('');
-                setSearchVentaProducto('');
-                
-                alert(`Venta registrada para ${cliente.nombre}. Total: S/. ${currentSaleItems.reduce((sum, item) => sum + item.total, 0).toFixed(2)}`);
-            };
-
-            // -------------------------------------------------------------------------
-            // Lógica de Asistencia (CORREGIDA)
-            // -------------------------------------------------------------------------
-
-            const agregarCliente = () => { 
-                /* ... (Lógica de agregar cliente se mantiene sin cambios) ... */
-                if (!nuevoCliente.nombre) {
-                    alert('El nombre del cliente no puede estar vacío.');
-                    return;
-                }
-
-                const newCliente = {
-                    id: Date.now(),
-                    nombre: nuevoCliente.nombre.trim(),
-                    tipoMembresia: nuevoCliente.tipoMembresia,
-                    fechaRegistro: new Date().toISOString()
-                };
-
-                setClientes([newCliente, ...clientes]);
-                setNuevoCliente({ nombre: '', tipoMembresia: 'por_clase' });
-                setShowAddCliente(false);
-            };
-
-            // Función auxiliar para el cálculo de precio (usa la fecha seleccionada para el filtro)
+            // MODIFICADO: Lógica de mensualidad
             const calcularPrecioClase = (clienteId) => {
-                const dateComparison = formatDateForFilter(selectedDate); // Usar fecha seleccionada
-                const asistenciasDiaCliente = asistencias.filter(a => 
-                    a.clienteId === clienteId && 
-                    formatDateForFilter(a.fecha) === dateComparison
-                );
-                return asistenciasDiaCliente.length > 0 ? 6 : 9;
+                const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
+                const cliente = clientes.find(c => c.id === clienteId);
+
+                // 1. Verificar si tiene mensualidad activa en la fecha seleccionada
+                const mensualidadActiva = isMensualidadActivaEnFecha(clienteId, attendanceDateString);
+
+                if (cliente.tipoMembresia === 'mensual' && mensualidadActiva) {
+                    // Si es mensual y está activa, la clase es gratuita (0), solo se cobra la segunda.
+                    const asistenciasEnFechaCliente = asistencias.filter(a => 
+                        a.clienteId === clienteId && 
+                        getAttendanceDateString(a.fecha) === attendanceDateString
+                    );
+                    return asistenciasEnFechaCliente.length > 0 ? 6 : 0;
+                } else {
+                    // Si es por clase O es mensual pero está inactiva, se cobra S/. 9 o S/. 6
+                    const asistenciasEnFechaCliente = asistencias.filter(a => 
+                        a.clienteId === clienteId && 
+                        getAttendanceDateString(a.fecha) === attendanceDateString
+                    );
+                    return asistenciasEnFechaCliente.length > 0 ? 6 : 9;
+                }
+            };
+
+            const agregarCliente = () => {
+                if (nuevoCliente.nombre.trim()) {
+                    const cliente = {
+                        id: Date.now(),
+                        nombre: nuevoCliente.nombre.trim(),
+                        tipoMembresia: nuevoCliente.tipoMembresia,
+                        fechaRegistro: new Date().toISOString(),
+                    };
+                    setClientes([...clientes, cliente]);
+                    setNuevoCliente({ nombre: '', tipoMembresia: 'por_clase' });
+                    setShowAddCliente(false);
+                }
             };
 
             const registrarAsistencia = (clienteId) => {
-                const cliente = clientes.find(c => c.id === clienteId);
-                const dateComparison = formatDateForFilter(selectedDate); 
-                const todayComparison = formatDateForFilter(new Date().toISOString());
-
-                // 🔴 VALIDACIÓN CRÍTICA: Solo se permite registrar asistencia para HOY.
-                if (dateComparison !== todayComparison) {
-                    alert(`Solo puedes registrar asistencias para el día de HOY (${todayComparison}). La fecha seleccionada es ${dateComparison}.`);
+                if (!selectedInstructor || !selectedHorario) {
+                    alert('Por favor, selecciona el Instructor y el Horario antes de registrar la asistencia.');
                     return;
                 }
 
-                const asistenciasDiaCliente = asistencias.filter(a => 
+                const cliente = clientes.find(c => c.id === clienteId);
+                const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
+                const mensualidadActiva = isMensualidadActivaEnFecha(clienteId, attendanceDateString);
+                
+                // Asistencias ya registradas en la fecha seleccionada
+                const asistenciasEnFechaCliente = asistencias.filter(a => 
                     a.clienteId === clienteId && 
-                    formatDateForFilter(a.fecha) === dateComparison
+                    getAttendanceDateString(a.fecha) === attendanceDateString
                 );
 
                 let montoCobrado = 0;
                 let requierePago = false;
+                let descripcionPago = '';
 
-                if (cliente.tipoMembresia === 'mensual') {
-                    if (asistenciasDiaCliente.length > 0) {
+                if (cliente.tipoMembresia === 'mensual' && mensualidadActiva) {
+                    if (asistenciasEnFechaCliente.length > 0) {
                         montoCobrado = 6;
                         requierePago = true;
+                        descripcionPago = 'Segunda clase del día (Adicional a mensualidad)';
+                    } else {
+                        montoCobrado = 0; // Clase gratuita por mensualidad
+                        requierePago = false;
+                        descripcionPago = 'Clase por mensualidad activa';
                     }
                 } else {
-                    montoCobrado = asistenciasDiaCliente.length > 0 ? 6 : 9;
+                    // Cliente por clase o Cliente mensual sin mensualidad activa
+                    montoCobrado = asistenciasEnFechaCliente.length > 0 ? 6 : 9;
                     requierePago = true;
+                    descripcionPago = asistenciasEnFechaCliente.length > 0 ? 'Segunda clase individual' : 'Clase individual';
                 }
+
+                if (asistenciasEnFechaCliente.length >= 2) {
+                    alert('Ya se registraron 2 clases para este cliente en esta fecha. No se permite registrar una tercera.');
+                    return;
+                }
+                
+                const selectedDate = new Date(attendanceDateString + 'T12:00:00'); 
+                const combinedDateTimeISO = selectedDate.toISOString();
+                const combinedDateTimeFormat = getDisplayDate(attendanceDateString);
+                const horaRegistro = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
                 const asistencia = {
                     id: Date.now(),
                     clienteId,
-                    fecha: new Date().toISOString(), // Usa la fecha y hora REAL
-                    fechaFormato: new Date().toLocaleString('es-PE', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
-                    esSegundaClaseDelDia: asistenciasDiaCliente.length > 0,
+                    fecha: combinedDateTimeISO, 
+                    fechaFormato: combinedDateTimeFormat,
+                    horaRegistro: horaRegistro,
+                    instructor: selectedInstructor,
+                    horario: selectedHorario,
+                    esSegundaClaseDelDia: asistenciasEnFechaCliente.length > 0,
                     montoCobrado: montoCobrado
                 };
 
                 setAsistencias([asistencia, ...asistencias]);
 
-                if (requierePago) {
+                if (requierePago && montoCobrado > 0) {
+                    // Tipo de pago para la clase. Si es cliente mensual activo que paga S/.6, el tipo de pago es 'clase_extra_mensualidad'
+                    const tipoPago = (cliente.tipoMembresia === 'mensual' && mensualidadActiva && montoCobrado === 6) ? 'clase_extra_mensualidad' : 'clase';
+
                     const pago = {
                         id: Date.now() + 1,
                         clienteId,
-                        tipo: 'clase',
+                        tipo: tipoPago,
                         monto: montoCobrado,
-                        fecha: new Date().toISOString(), // Usa la fecha y hora REAL
-                        fechaFormato: asistencia.fechaFormato,
-                        descripcion: asistenciasDiaCliente.length > 0 ? 'Segunda clase del día' : 'Clase individual'
+                        fecha: combinedDateTimeISO,
+                        fechaFormato: combinedDateTimeFormat,
+                        descripcion: `${descripcionPago} con ${selectedInstructor} en el horario ${selectedHorario}`
                     };
                     setPagos([pago, ...pagos]);
                 }
             };
 
-            const pagarMensualidad = (clienteId) => { 
-                /* ... (Lógica de pago de mensualidad se mantiene sin cambios) ... */
-                const montoInput = document.getElementById(`monto-mensualidad-${clienteId}`);
-                const monto = parseFloat(montoInput?.value);
+            // MODIFICADO: Lógica de pago de mensualidad habilitada si no hay un pago posterior
+            const pagarMensualidad = (clienteId) => {
+                const targetDateString = selectedAttendanceDate; // Fecha de registro del pago
+                const targetDate = new Date(targetDateString + 'T12:00:00');
 
-                if (!monto || monto <= 0) {
-                    alert('Ingresa un monto válido para la mensualidad.');
+                // Verificar si ya existe un pago de mensualidad *posterior* a la fecha seleccionada
+                const pagoPosterior = pagos.some(p => 
+                    p.clienteId === clienteId && 
+                    p.tipo === 'mensualidad' &&
+                    new Date(p.fecha.substring(0, 10) + 'T12:00:00') > targetDate
+                );
+
+                if (pagoPosterior) {
+                    alert(`El cliente ya tiene un pago de mensualidad registrado *después* de esta fecha (${targetDateString}). No se puede registrar un pago anterior.`);
                     return;
                 }
 
-                const nowISO = new Date().toISOString();
+                const montoInput = document.getElementById(`monto-mensualidad-${clienteId}`);
+                const monto = parseFloat(montoInput.value);
+                
+                if (!monto || monto <= 0) {
+                    alert('Ingresa un monto válido');
+                    return;
+                }
+
                 const pago = {
                     id: Date.now(),
                     clienteId,
                     tipo: 'mensualidad',
-                    monto,
-                    fecha: nowISO,
-                    fechaFormato: new Date().toLocaleString('es-PE', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
-                    descripcion: 'Pago de mensualidad'
+                    monto: monto,
+                    fecha: targetDate.toISOString(),
+                    fechaFormato: getDisplayDate(targetDateString),
+                    descripcion: `Mensualidad pagada con fecha ${targetDateString}`
                 };
 
                 setPagos([pago, ...pagos]);
-                alert('Mensualidad registrada exitosamente.');
-                if (montoInput) montoInput.value = '';
-            }; 
-            
-            const actualizarStock = (productoId, nuevoStock) => { 
-                /* ... (Lógica de stock se mantiene sin cambios) ... */
-                const stock = parseInt(nuevoStock);
-                if (isNaN(stock) || stock < 0) return;
 
-                setProductos(productos.map(p => 
-                    p.id === productoId ? { ...p, stock: stock } : p
-                ));
+                montoInput.value = '';
+            };
+
+            // Lógica de Venta (Obsoleta, mantenida por si acaso)
+            const registrarVenta = (productoId, clienteId, cantidad) => {
+                const producto = productos.find(p => p.id === productoId);
+                const selectedDate = new Date(selectedAttendanceDate + 'T12:00:00');
+                const combinedDateTimeISO = selectedDate.toISOString();
+                const combinedDateTimeFormat = getDisplayDate(selectedAttendanceDate);
+
+                if (producto.stock >= cantidad) {
+                    const venta = {
+                        id: Date.now(),
+                        productoId,
+                        clienteId: parseInt(clienteId), // Asegurar que sea numérico
+                        cantidad,
+                        total: producto.precio * cantidad,
+                        fecha: combinedDateTimeISO,
+                        fechaFormato: combinedDateTimeFormat
+                    };
+                    setVentas([venta, ...ventas]);
+                    setProductos(productos.map(p => 
+                        p.id === productoId ? { ...p, stock: p.stock - cantidad } : p
+                    ));
+                } else {
+                    alert(`Stock insuficiente. Solo quedan ${producto.stock} de ${producto.nombre}.`);
+                }
             };
             
-            // -------------------------------------------------------------------------
-            // Filtros para la UI
-            // -------------------------------------------------------------------------
+            // NUEVO: Funciones para Carrito (Punto 3)
+            const handleProductChange = (product, quantity) => {
+                const existingItem = carrito.find(item => item.productId === product.id);
+                
+                // Asegurar que la cantidad no exceda el stock real
+                if (quantity > product.stock) {
+                    alert(`No hay suficiente stock. Solo quedan ${product.stock} de ${product.nombre}.`);
+                    return;
+                }
+
+                if (existingItem) {
+                    if (quantity <= 0) {
+                        setCarrito(carrito.filter(item => item.productId !== product.id));
+                    } else {
+                        setCarrito(carrito.map(item =>
+                            item.productId === product.id ? { ...item, quantity: quantity } : item
+                        ));
+                    }
+                } else if (quantity > 0) {
+                    setCarrito([...carrito, { 
+                        productId: product.id, 
+                        nombre: product.nombre, 
+                        price: product.precio, 
+                        quantity: quantity 
+                    }]);
+                }
+            };
+
+            const handleRemoveFromCarrito = (productId) => {
+                setCarrito(carrito.filter(item => item.productId !== productId));
+            };
+
+            const finalizarVenta = () => {
+                if (!selectedClientVentaId) {
+                    alert('Debes seleccionar un cliente para finalizar la venta.');
+                    return;
+                }
+                if (carrito.length === 0) {
+                    alert('El carrito está vacío.');
+                    return;
+                }
+
+                const targetClient = clientes.find(c => c.id === parseInt(selectedClientVentaId));
+                if (!targetClient) {
+                    alert('Cliente no válido.');
+                    return;
+                }
+
+                const targetDate = new Date(selectedAttendanceDate + 'T12:00:00');
+                const combinedDateTimeISO = targetDate.toISOString();
+                const combinedDateTimeFormat = getDisplayDate(selectedAttendanceDate);
+                
+                const newVentas = [];
+                let updatedProductos = [...productos];
+
+                let hasError = false;
+
+                // 1. Procesar cada ítem del carrito
+                const now = Date.now();
+                carrito.forEach((item, index) => {
+                    const productInStock = updatedProductos.find(p => p.id === item.productId);
+                    
+                    if (item.quantity > productInStock.stock) {
+                        alert(`Error de Stock: La cantidad de ${item.nombre} (${item.quantity}) excede el stock disponible (${productInStock.stock}).`);
+                        hasError = true;
+                        return;
+                    }
+
+                    const venta = {
+                        id: now + index, // Usar un ID incremental para el mismo lote
+                        productoId: item.productId,
+                        clienteId: parseInt(selectedClientVentaId),
+                        cantidad: item.quantity,
+                        total: item.price * item.quantity,
+                        fecha: combinedDateTimeISO,
+                        fechaFormato: combinedDateTimeFormat
+                    };
+                    newVentas.push(venta);
+
+                    // 2. Actualizar Stock localmente para el siguiente producto en el carrito
+                    updatedProductos = updatedProductos.map(p => 
+                        p.id === item.productId ? { ...p, stock: p.stock - item.quantity } : p
+                    );
+                });
+
+                if (hasError) return;
+
+                // 3. Persistir cambios
+                setVentas([...newVentas, ...ventas]);
+                setProductos(updatedProductos);
+                
+                // 4. Limpiar
+                setCarrito([]);
+                setSelectedClientVentaId('');
+                setSearchClientVenta('');
+                alert(`Venta de ${newVentas.length} productos a ${targetClient.nombre} finalizada con éxito. Total: S/. ${newVentas.reduce((sum, v) => sum + v.total, 0).toFixed(2)}.`);
+            };
+
+
+            const actualizarStock = (productoId, nuevoStock) => {
+                setProductos(productos.map(p => 
+                    p.id === productoId ? { ...p, stock: parseInt(nuevoStock) || 0 } : p
+                ));
+            };
+
+            // FUNCIONES DE EDICIÓN/ELIMINACIÓN
+            const startEditing = (attendance) => {
+                setEditingAttendanceId(attendance.id);
+                setEditInstructor(attendance.instructor);
+                setEditHorario(attendance.horario);
+            };
+
+            const saveEditing = (id) => {
+                setAsistencias(asistencias.map(a => 
+                    a.id === id 
+                        ? { ...a, instructor: editInstructor, horario: editHorario } 
+                        : a
+                ));
+                setEditingAttendanceId(null);
+            };
+
+            const deleteAttendance = (id) => {
+                if (window.confirm('¿Estás seguro de que quieres eliminar este registro de asistencia? Se eliminará cualquier pago asociado.')) {
+                    const deletedAsistencia = asistencias.find(a => a.id === id);
+                    if (!deletedAsistencia) return;
+
+                    // 1. Eliminar la asistencia
+                    setAsistencias(asistencias.filter(a => a.id !== id));
+                    
+                    // 2. Intentar eliminar el pago asociado (solo si es pago por clase)
+                    setPagos(pagos.filter(p => !(
+                        (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad') && 
+                        p.clienteId === deletedAsistencia.clienteId &&
+                        p.monto === deletedAsistencia.montoCobrado &&
+                        getAttendanceDateString(p.fecha) === getAttendanceDateString(deletedAsistencia.fecha)
+                    )));
+                }
+            };
+            // FIN NUEVAS FUNCIONES
 
             const clientesFiltrados = clientes.filter(c => 
                 c.nombre.toLowerCase().includes(searchCliente.toLowerCase())
             );
 
-            // Filtro para el buscador de clientes en Ventas
-            const clientesVentaFiltrados = clientes.filter(c => 
-                c.nombre.toLowerCase().includes(searchVentaCliente.toLowerCase())
+            // PUNTO 1: Resumen de KPIs Superiores (usan selectedAttendanceDate)
+            const workingDateISO = selectedAttendanceDate;
+            
+            // Cálculos para los 4 KPI cards superiores
+            const asistenciasWorkingDate = asistencias.filter(a => 
+                getAttendanceDateString(a.fecha) === workingDateISO
             );
 
-            // Filtro para el buscador de productos en Ventas
-            const productosVentaFiltrados = productos.filter(p => 
-                p.nombre.toLowerCase().includes(searchVentaProducto.toLowerCase())
+            const ventasWorkingDate = ventas.filter(v => 
+                getAttendanceDateString(v.fecha) === workingDateISO
             );
 
-            const selectedClienteName = clientes.find(c => c.id === selectedVentaClienteId)?.nombre || 'Seleccionar cliente...';
-
-            const TabButton = ({ id, icon: Icon, label, count }) => (
-                <button
-                    onClick={() => setActiveTab(id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${
-                        activeTab === id 
-                            ? 'bg-purple-600 text-white shadow-lg' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                >
-                    <Icon size={20} />
-                    <span className="font-medium">{label}</span>
-                    {count !== undefined && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            activeTab === id ? 'bg-purple-500' : 'bg-gray-200'
-                        }`}>
-                            {count}
-                        </span>
-                    )}
-                </button>
+            const pagosWorkingDate = pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === workingDateISO
             );
+            
+            // Separar Pagos para el texto descriptivo
+            const pagosClaseWorkingDate = pagosWorkingDate.filter(p => p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad');
+            const pagosMensualidadWorkingDate = pagosWorkingDate.filter(p => p.tipo === 'mensualidad');
+            
+            const totalVentasWorkingDate = ventasWorkingDate.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosClaseWorkingDate = pagosClaseWorkingDate.reduce((sum, p) => sum + p.monto, 0);
+            const totalPagosMensualidadWorkingDate = pagosMensualidadWorkingDate.reduce((sum, p) => sum + p.monto, 0);
+            const totalPagosWorkingDate = totalPagosClaseWorkingDate + totalPagosMensualidadWorkingDate;
+            const totalIngresosWorkingDate = totalVentasWorkingDate + totalPagosWorkingDate;
+
+
+            // LÓGICA DE FILTRADO PARA REPORTES POR selectedReportDate (En la pestaña Dashboard)
+            const asistenciasReporte = asistencias.filter(a => 
+                getAttendanceDateString(a.fecha) === selectedReportDate
+            );
+            const ventasReporte = ventas.filter(v => 
+                getAttendanceDateString(v.fecha) === selectedReportDate
+            );
+            const pagosReporte = pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === selectedReportDate
+            );
+
+            const totalVentasReporte = ventasReporte.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosReporte = pagosReporte.reduce((sum, p) => sum + p.monto, 0);
+            const totalIngresosReporte = totalVentasReporte + totalPagosReporte;
+            
+            // ==========================================================
+            // LLAMADAS A LÓGICA DE GRÁFICOS (KPIs)
+            // ==========================================================
+            // KPI 1 & 2
+            const dataIngresosDiarios = procesarIngresosDiarios(pagos, ventas);
+            const dataIngresosPorFuente = procesarIngresosPorFuente(pagos, ventas);
+            
+            // KPI 3: Estado de Clientes Mensuales
+            const dataEstadoMensual = procesarEstadoMensual(clientes, pagos);
+
+            // KPI 4: Tasa de Renovación
+            const kpiRenovacion = calcularTasaRenovacion(clientes, pagos);
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
                     <div className="max-w-6xl mx-auto">
                         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                            <div className="flex justify-between items-start">
+                            <div className="flex justify-between items-center">
                                 <div>
                                     <h1 className="text-3xl font-bold text-gray-800 mb-2">💪 Sistema de Gestión Fitness</h1>
-                                    <p className="text-gray-600">Cardio, Baile & Herbalife</p>
+                                    <p className="text-gray-600">Reporte del día: <span className='font-bold text-purple-600'>{getDisplayDate(workingDateISO)}</span></p>
                                 </div>
-                                
-                                {/* Selector de Fecha */}
-                                <div className="flex flex-col items-end gap-2 no-print">
-                                    <label className="text-sm font-medium text-gray-700">Reporte del Día:</label>
-                                    <input
-                                        type="date"
-                                        value={selectedDate}
-                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                        // 🔴 CORRECCIÓN 1: Restringe la fecha máxima a HOY.
-                                        max={todayISO} 
-                                        className="px-3 py-2 border rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
-                                    />
-                                    <div className="flex gap-2 mt-2">
-                                        <button
-                                            onClick={exportarAExcel}
-                                            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-                                        >
-                                            <Download size={20} />
-                                            Excel
-                                        </button>
-                                        <button
-                                            onClick={exportarAPDF}
-                                            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                                        >
-                                            <Download size={20} />
-                                            PDF
-                                        </button>
-                                    </div>
+                                <div className="flex gap-2 no-print">
+                                    <button
+                                        onClick={exportarAExcel}
+                                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                                    >
+                                        <Download size={20} />
+                                        Excel
+                                    </button>
+                                    <button
+                                        onClick={exportarAPDF}
+                                        className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                                    >
+                                        <Download size={20} />
+                                        PDF Diario (Hoy)
+                                    </button>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Cards Dinámicos (usan variables DelDia) */}
+                        {/* PUNTO 1: KPIs dinámicos por selectedAttendanceDate */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Total {formatDateForFilter(selectedDate)}</p>
-                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresosDelDia.toFixed(2)}</p>
+                                        <p className="text-gray-600 text-sm">Total Ingreso ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresosWorkingDate.toFixed(2)}</p>
                                     </div>
                                     <BarChart3 size={40} className="text-orange-400" />
                                 </div>
@@ -739,8 +1265,8 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Asistencias {formatDateForFilter(selectedDate)}</p>
-                                        <p className="text-3xl font-bold text-purple-600">{asistenciasDelDia.length}</p>
+                                        <p className="text-gray-600 text-sm">Asistencias ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-purple-600">{asistenciasWorkingDate.length}</p>
                                     </div>
                                     <Users size={40} className="text-purple-400" />
                                 </div>
@@ -748,8 +1274,8 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Clases {formatDateForFilter(selectedDate)}</p>
-                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosDelDia.toFixed(2)}</p>
+                                        <p className="text-gray-600 text-sm">Pagos Clases/Mensualidad ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosWorkingDate.toFixed(2)}</p>
                                     </div>
                                     <CreditCard size={40} className="text-blue-400" />
                                 </div>
@@ -757,8 +1283,8 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Productos {formatDateForFilter(selectedDate)}</p>
-                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasDelDia.toFixed(2)}</p>
+                                        <p className="text-gray-600 text-sm">Productos ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasWorkingDate.toFixed(2)}</p>
                                     </div>
                                     <ShoppingCart size={40} className="text-green-400" />
                                 </div>
@@ -766,19 +1292,18 @@
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-6 no-print">
-                            <TabButton id="asistencia" icon={Users} label="Asistencia" />
-                            <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" />
-                            <TabButton id="ventas" icon={ShoppingCart} label="Ventas" />
-                            <TabButton id="inventario" icon={Package} label="Inventario" count={productos.filter(p => p.stock < 10).length} />
-                            <TabButton id="reportes" icon={BarChart3} label="Reportes" />
+                            <TabButton id="asistencia" icon={Users} label="Asistencia" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="ventas" icon={ShoppingCart} label="Ventas" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="inventario" icon={Package} label="Inventario" count={productos.filter(p => p.stock < 10).length} activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="dashboard" icon={BarChart3} label="Dashboard" activeTab={activeTab} setActiveTab={setActiveTab} />
                         </div>
 
                         <div className="bg-white rounded-xl shadow-lg p-6">
-                            {/* Pestaña ASISTENCIA */}
                             {activeTab === 'asistencia' && (
                                 <div>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-2xl font-bold text-gray-800">Registrar Asistencia ({formatDateForFilter(selectedDate)})</h2>
+                                        <h2 className="text-2xl font-bold text-gray-800">Registrar Asistencia</h2>
                                         <button
                                             onClick={() => setShowAddCliente(true)}
                                             className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 no-print"
@@ -788,7 +1313,7 @@
                                         </button>
                                     </div>
 
-                                    {showAddCliente && ( /* ... Formulario Agregar Cliente ... */
+                                    {showAddCliente && (
                                         <div className="bg-purple-50 p-4 rounded-lg mb-4 no-print">
                                             <div className="space-y-3">
                                                 <input
@@ -816,13 +1341,62 @@
                                                     <button
                                                         onClick={() => setShowAddCliente(false)}
                                                         className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-                                                        >
+                                                    >
                                                         <X size={20} />
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* SELECCIÓN DE FECHA, INSTRUCTOR Y HORARIO */}
+                                    <div className="mb-4 p-4 border rounded-lg bg-purple-50 no-print grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-3">
+                                            <h3 className="text-lg font-bold text-gray-800 mb-2 border-b pb-2">📅 Datos de la Clase</h3>
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 flex items-center gap-1 mb-1">
+                                                <Calendar size={16}/> Fecha de Registro
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={selectedAttendanceDate}
+                                                onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                                                className="px-4 py-2 border rounded-lg w-full"
+                                                max={new Date().toISOString().split('T')[0]} 
+                                            />
+                                            <p className="text-xs text-gray-500 mt-2">Registrando para: <span className="font-medium text-purple-700">{getDisplayDate(selectedAttendanceDate)}</span></p>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 flex items-center gap-1 mb-1">
+                                                <Award size={16}/> Instructor
+                                            </label>
+                                            <select
+                                                value={selectedInstructor}
+                                                onChange={(e) => setSelectedInstructor(e.target.value)}
+                                                className="px-4 py-2 border rounded-lg w-full"
+                                            >
+                                                {INSTRUCTORES.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700 flex items-center gap-1 mb-1">
+                                                <Clock size={16}/> Horario
+                                            </label>
+                                            <select
+                                                value={selectedHorario}
+                                                onChange={(e) => setSelectedHorario(e.target.value)}
+                                                className="px-4 py-2 border rounded-lg w-full"
+                                            >
+                                                {HORARIOS.map(hor => <option key={hor} value={hor}>{hor}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    {/* FIN SELECCIÓN */}
+
 
                                     <div className="mb-4 no-print">
                                         <div className="relative">
@@ -839,123 +1413,209 @@
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 no-print">
                                         {clientesFiltrados.map(cliente => {
-                                            const precio = cliente.tipoMembresia === 'mensual' 
-                                                ? (asistenciasDelDia.filter(a => a.clienteId === cliente.id).length > 0 ? 6 : 0)
-                                                : calcularPrecioClase(cliente.id);
+                                            const precio = calcularPrecioClase(cliente.id);
+                                            const mensualidadActiva = isMensualidadActivaEnFecha(cliente.id, selectedAttendanceDate);
                                             
-                                            // La asistencia solo es posible si selectedDate es HOY
-                                            const isToday = formatDateForFilter(selectedDate) === formatDateForFilter(new Date().toISOString());
-
                                             return (
-                                                <div key={cliente.id} className={`p-3 border rounded-lg ${!isToday ? 'opacity-50' : 'hover:bg-gray-50'}`}>
+                                                <div key={cliente.id} className="p-3 border rounded-lg hover:bg-gray-50">
                                                     <div className="flex justify-between items-start mb-2">
                                                         <div>
                                                             <span className="font-medium block">{cliente.nombre}</span>
                                                             <span className={`text-xs px-2 py-1 rounded ${
                                                                 cliente.tipoMembresia === 'mensual' 
-                                                                    ? 'bg-blue-100 text-blue-700' 
+                                                                    ? mensualidadActiva ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                                                                     : 'bg-green-100 text-green-700'
                                                             }`}>
-                                                                {cliente.tipoMembresia === 'mensual' ? '📅 Mensual' : '💳 Por Clase'}
+                                                                {cliente.tipoMembresia === 'mensual' 
+                                                                    ? mensualidadActiva ? '📅 Mensual ACTIVA' : '📅 Mensual INACTIVA' 
+                                                                    : '💳 Por Clase'
+                                                                }
                                                             </span>
                                                         </div>
                                                         <button
                                                             onClick={() => registrarAsistencia(cliente.id)}
-                                                            disabled={!isToday}
-                                                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1 disabled:bg-gray-400"
+                                                            className={`text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1 ${precio === 0 ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500'}`}
+                                                            disabled={!selectedInstructor || !selectedHorario}
                                                         >
-                                                            ✓ Presente
-                                                            {precio > 0 && <span className="text-xs">S/. {precio.toFixed(2)}</span>}
+                                                            ✓ Registrar
+                                                            {precio > 0 ? <span className="text-xs">S/. {precio.toFixed(2)}</span> : <span className="text-xs">GRATIS</span>}
                                                         </button>
                                                     </div>
-                                                    {!isToday && <p className="text-red-500 text-xs">Asistencia solo para hoy.</p>}
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias de {formatDateForFilter(selectedDate)} ({asistenciasDelDia.length})</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias Registradas para el {getDisplayDate(selectedAttendanceDate)} ({asistenciasWorkingDate.length})</h3>
                                     <div className="space-y-2">
-                                        {asistenciasDelDia.map(a => {
+                                        {asistenciasWorkingDate
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                                            .map(a => {
                                             const cliente = clientes.find(c => c.id === a.clienteId);
                                             return (
                                                 <div key={a.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                                                     <div>
                                                         <span className="font-medium block">{cliente?.nombre}</span>
+                                                        <span className="text-xs text-gray-700">
+                                                            {a.instructor} ({a.horario})
+                                                        </span>
                                                         {a.esSegundaClaseDelDia && (
-                                                            <span className="text-xs text-blue-600">🔄 Segunda clase del día</span>
+                                                            <span className="text-xs text-blue-600 block">🔄 Segunda clase del día</span>
                                                         )}
                                                     </div>
-                                                    <div className="text-right">
-                                                        {a.montoCobrado > 0 && (
-                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado.toFixed(2)}</span>
-                                                        )}
-                                                        <span className="text-gray-600 text-xs">{a.fechaFormato}</span>
+                                                    <div className="text-right flex items-center gap-2">
+                                                        <div className="text-right">
+                                                            {a.montoCobrado > 0 ? (
+                                                                <span className="font-bold text-green-600 block">S/. {a.montoCobrado.toFixed(2)}</span>
+                                                            ) : (
+                                                                <span className="font-bold text-purple-600 block">GRATIS</span>
+                                                            )}
+                                                            <span className="text-gray-600 text-xs">Registrado a las {a.horaRegistro}</span>
+                                                        </div>
+                                                        <div className="flex gap-1 no-print">
+                                                            <button
+                                                                onClick={() => startEditing(a)}
+                                                                className="p-1 bg-yellow-400 rounded hover:bg-yellow-500 text-white"
+                                                                title="Editar Instructor/Horario"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteAttendance(a.id)}
+                                                                className="p-1 bg-red-500 rounded hover:bg-red-600 text-white"
+                                                                title="Eliminar Registro"
+                                                            >
+                                                                <Trash size={16} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
+                                    
+                                    {editingAttendanceId && (
+                                        <Modal 
+                                            title="Editar Registro de Asistencia" 
+                                            onClose={() => setEditingAttendanceId(null)}
+                                        >
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Instructor</label>
+                                                    <select
+                                                        value={editInstructor}
+                                                        onChange={(e) => setEditInstructor(e.target.value)}
+                                                        className="px-4 py-2 border rounded-lg w-full"
+                                                    >
+                                                        {INSTRUCTORES.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Horario</label>
+                                                    <select
+                                                        value={editHorario}
+                                                        onChange={(e) => setEditHorario(e.target.value)}
+                                                        className="px-4 py-2 border rounded-lg w-full"
+                                                    >
+                                                        {HORARIOS.map(hor => <option key={hor} value={hor}>{hor}</option>)}
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    onClick={() => saveEditing(editingAttendanceId)}
+                                                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                                                >
+                                                    Guardar Cambios
+                                                </button>
+                                            </div>
+                                        </Modal>
+                                    )}
+
                                 </div>
                             )}
 
-                            {/* Pestaña MENSUALIDADES */}
                             {activeTab === 'mensualidades' && (
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Mensualidades</h2>
+                                    
+                                    <div className="mb-4 p-4 border rounded-lg bg-blue-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Pago de Mensualidad</h3>
+                                        <input
+                                            type="date"
+                                            value={selectedAttendanceDate}
+                                            onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                                            className="px-4 py-2 border rounded-lg w-48"
+                                            max={new Date().toISOString().split('T')[0]} 
+                                        />
+                                        <p className="text-sm text-gray-600 mt-2">Registrando pago para la fecha: <span className="font-medium text-blue-700">{getDisplayDate(selectedAttendanceDate)}</span></p>
+                                    </div>
+
                                     <div className="space-y-3">
                                         {clientes.filter(c => c.tipoMembresia === 'mensual').map(cliente => {
-                                            const mesActual = new Date().getMonth();
-                                            const añoActual = new Date().getFullYear();
-                                            const yaPago = pagos.some(p => 
+                                            const fechaVencimiento = getFechaVencimiento(cliente.id);
+                                            const hoy = new Date(new Date().toISOString().split('T')[0] + 'T12:00:00');
+                                            const activoAhora = fechaVencimiento && hoy <= fechaVencimiento;
+                                            
+                                            const fechaPago = new Date(selectedAttendanceDate + 'T12:00:00');
+                                            const puedePagar = !pagos.some(p => 
                                                 p.clienteId === cliente.id && 
                                                 p.tipo === 'mensualidad' &&
-                                                new Date(p.fecha).getMonth() === mesActual &&
-                                                new Date(p.fecha).getFullYear() === añoActual
+                                                new Date(p.fecha.substring(0, 10) + 'T12:00:00') > fechaPago
                                             );
                                             
-                                            // Solo se permite pagar si la fecha seleccionada es hoy
-                                            const isToday = selectedDate === todayISO;
+                                            const diasRestantes = activoAhora 
+                                                ? Math.ceil((fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 3600 * 24))
+                                                : -1;
+                                            
+                                            let alerta = '';
+                                            if (diasRestantes >= 0 && diasRestantes <= 5) {
+                                                alerta = `⚠️ Quedan ${diasRestantes} días para el vencimiento (Vence: ${fechaVencimiento.toLocaleDateString('es-PE')}).`;
+                                            } else if (diasRestantes < 0) {
+                                                alerta = `❌ Vencido. Último pago: ${fechaVencimiento ? fechaVencimiento.toLocaleDateString('es-PE') : 'N/A'}.`;
+                                            }
+
 
                                             return (
                                                 <div key={cliente.id} className={`p-4 rounded-lg border-2 ${
-                                                    yaPago ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'
-                                                } ${!isToday ? 'opacity-50' : ''}`}>
+                                                    activoAhora ? (diasRestantes <= 5 ? 'border-orange-300 bg-orange-50' : 'border-green-300 bg-green-50') : 'border-red-300 bg-red-50'
+                                                }`}>
                                                     <div className="flex justify-between items-center">
                                                         <div>
                                                             <h4 className="font-bold text-gray-800">{cliente.nombre}</h4>
                                                             <p className="text-sm text-gray-600">
-                                                                {yaPago ? '✓ Pagado este mes' : '⚠️ Pendiente de pago'}
+                                                                {fechaVencimiento ? `Vencimiento: ${fechaVencimiento.toLocaleDateString('es-PE')}` : 'Sin pago de mensualidad.'}
                                                             </p>
+                                                            {alerta && <p className={`text-xs font-semibold mt-1 ${diasRestantes <= 5 && diasRestantes >= 0 ? 'text-orange-700' : 'text-red-700'}`}>{alerta}</p>}
                                                         </div>
-                                                        {!yaPago && (
+                                                        {puedePagar && (
                                                             <div className="flex gap-2 items-center no-print">
                                                                 <input
                                                                     type="number"
                                                                     id={`monto-mensualidad-${cliente.id}`}
                                                                     placeholder="Monto"
                                                                     className="w-24 px-3 py-2 border rounded"
-                                                                    disabled={!isToday}
                                                                 />
                                                                 <button
                                                                     onClick={() => pagarMensualidad(cliente.id)}
-                                                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
-                                                                    disabled={!isToday}
+                                                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                                                                 >
                                                                     Pagar
                                                                 </button>
                                                             </div>
                                                         )}
-                                                        {!isToday && <span className="text-red-500 text-xs">Solo hoy.</span>}
+                                                        {!puedePagar && (
+                                                            <p className="text-sm font-medium text-red-500">Pago posterior registrado</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos (Mensualidades - 10 más recientes)</h3>
                                     <div className="space-y-2">
-                                        {pagos.filter(p => p.tipo === 'mensualidad').slice(0, 10).map(p => {
+                                        {pagos.filter(p => p.tipo === 'mensualidad')
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                                            .slice(0, 10).map(p => {
                                             const cliente = clientes.find(c => c.id === p.clienteId);
                                             return (
                                                 <div key={p.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
@@ -974,158 +1634,171 @@
                                 </div>
                             )}
 
-                            {/* Pestaña VENTAS */}
                             {activeTab === 'ventas' && (
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Registrar Venta de Productos ({formatDateForFilter(selectedDate)})</h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Ventas de Productos Herbalife</h2>
                                     
-                                    <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 no-print ${selectedDate !== todayISO ? 'opacity-50 pointer-events-none' : ''}`}>
+                                    <div className="mb-6 p-4 border rounded-lg bg-blue-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Venta Registrada</h3>
+                                        <p className="text-sm text-gray-600 mb-2">La venta se registrará con la fecha seleccionada en la pestaña **Asistencia**.</p>
+                                        <p className="text-base font-medium text-blue-700">Fecha actual: {getDisplayDate(selectedAttendanceDate)}</p>
+                                    </div>
+
+                                    {/* PUNTO 2: Buscador de Cliente con filtro */}
+                                    <div className="mb-4 p-4 border rounded-lg bg-yellow-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">👥 1. Seleccionar Cliente</h3>
+                                        <div className="relative">
+                                            <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar cliente por nombre o apellido..."
+                                                value={searchClientVenta}
+                                                onChange={(e) => setSearchClientVenta(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-2 border rounded-lg mb-2"
+                                            />
+                                        </div>
                                         
-                                        {/* Columna 1: Selección de Cliente */}
-                                        <div className="p-4 bg-gray-50 rounded-lg border lg:col-span-1">
-                                            <h3 className="font-bold text-lg mb-3 flex justify-between items-center">
-                                                Cliente: 
-                                                <span className={`text-sm font-normal px-2 py-1 rounded ${selectedVentaClienteId ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {selectedVentaClienteId ? selectedClienteName : 'No seleccionado'}
-                                                </span>
-                                            </h3>
-                                            
-                                            {/* Buscador de Cliente */}
-                                            <div className="relative mb-2">
-                                                <input
-                                                    type="text"
-                                                    value={searchVentaCliente}
-                                                    onChange={(e) => {
-                                                        setSearchVentaCliente(e.target.value);
-                                                        setSelectedVentaClienteId(null);
+                                        {/* Lista de Clientes Filtrados */}
+                                        <div className="max-h-40 overflow-y-auto border rounded-lg p-2 bg-white">
+                                            {clientes.filter(c => 
+                                                c.nombre.toLowerCase().includes(searchClientVenta.toLowerCase())
+                                            ).map(c => (
+                                                <div 
+                                                    key={c.id} 
+                                                    className={`p-2 cursor-pointer rounded-lg mb-1 ${
+                                                        selectedClientVentaId === c.id.toString() 
+                                                            ? 'bg-yellow-200 font-bold' 
+                                                            : 'hover:bg-gray-100'
+                                                    }`}
+                                                    onClick={() => {
+                                                        setSelectedClientVentaId(c.id.toString());
+                                                        setSearchClientVenta(c.nombre); // Opcional: mostrar nombre completo en el buscador
                                                     }}
-                                                    placeholder="Buscar cliente (Nombre/Apellido)"
-                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                                                    ref={clienteSearchRef}
-                                                />
-                                            </div>
-                                            
-                                            {/* Lista de resultados */}
-                                            <div className="max-h-40 overflow-y-auto border p-1 rounded-lg bg-white">
-                                                {clientesVentaFiltrados.slice(0, 5).map(c => (
-                                                    <div
-                                                        key={c.id}
-                                                        onClick={() => {
-                                                            setSelectedVentaClienteId(c.id);
-                                                            setSearchVentaCliente(c.nombre);
-                                                            clienteSearchRef.current.blur(); // Ocultar lista después de seleccionar
-                                                        }}
-                                                        className={`p-2 cursor-pointer rounded text-sm ${selectedVentaClienteId === c.id ? 'bg-purple-50 font-bold' : 'hover:bg-gray-100'}`}
-                                                    >
-                                                        {c.nombre}
-                                                    </div>
-                                                ))}
-                                                {clientesVentaFiltrados.length === 0 && searchVentaCliente && (
-                                                    <p className="p-2 text-sm text-gray-500">No hay coincidencias.</p>
-                                                )}
-                                            </div>
+                                                >
+                                                    {c.nombre}
+                                                </div>
+                                            ))}
+                                            {searchClientVenta && clientes.filter(c => 
+                                                c.nombre.toLowerCase().includes(searchClientVenta.toLowerCase())
+                                            ).length === 0 && (
+                                                <p className="text-sm text-gray-500 p-2">No se encontraron clientes.</p>
+                                            )}
                                         </div>
 
-                                        {/* Columna 2: Selección de Productos */}
-                                        <div className="p-4 bg-gray-50 rounded-lg border lg:col-span-2">
-                                            <h3 className="font-bold text-lg mb-3">Agregar Productos</h3>
-                                            
-                                            {/* Buscador de Productos */}
-                                            <div className="relative mb-3">
-                                                <input
-                                                    type="text"
-                                                    value={searchVentaProducto}
-                                                    onChange={(e) => setSearchVentaProducto(e.target.value)}
-                                                    placeholder="Buscar producto (Ej: Batido, Té)"
-                                                    className="w-full px-4 py-2 border rounded-lg focus:ring-green-500 focus:border-green-500"
-                                                />
-                                            </div>
+                                        {selectedClientVentaId && (
+                                            <p className="mt-3 text-sm font-medium text-green-700">
+                                                Cliente Seleccionado: <span className="font-bold">{clientes.find(c => c.id.toString() === selectedClientVentaId)?.nombre}</span>
+                                            </p>
+                                        )}
+                                    </div>
 
-                                            {/* Resultados y Selección */}
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-48 overflow-y-auto p-1">
-                                                {productosVentaFiltrados.map(prod => (
-                                                    <div key={prod.id} className={`p-2 border rounded-lg ${prod.stock === 0 ? 'bg-red-50 opacity-60' : 'bg-white hover:border-green-400'}`}>
-                                                        <h4 className="font-medium">{prod.nombre}</h4>
-                                                        <p className="text-xs text-gray-600">Stock: {prod.stock}</p>
-                                                        <p className="text-sm font-bold text-green-600">S/. {prod.precio.toFixed(2)}</p>
-                                                        <div className="flex gap-1 mt-1">
-                                                            <input
-                                                                type="number"
-                                                                id={`cant-venta-${prod.id}`}
-                                                                min="1"
-                                                                max={prod.stock}
-                                                                defaultValue="1"
-                                                                className="w-10 text-xs px-1 border rounded"
-                                                            />
-                                                            <button
-                                                                onClick={() => handleAddSaleItem(prod.id, document.getElementById(`cant-venta-${prod.id}`).value)}
-                                                                disabled={prod.stock === 0}
-                                                                className="flex-1 bg-green-500 text-white text-xs py-0.5 rounded disabled:bg-gray-300"
-                                                            >
-                                                                + Agregar
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {productosVentaFiltrados.length === 0 && searchVentaProducto && (
-                                                    <p className="col-span-full p-2 text-sm text-gray-500">No se encontraron productos.</p>
-                                                )}
-                                            </div>
+                                    {/* PUNTO 3: Buscador de Producto y Carrito de Compras */}
+                                    <div className="mb-6 p-4 border rounded-lg bg-green-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-3">🛒 2. Agregar Productos al Carrito</h3>
+                                        <div className="relative">
+                                            <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar producto..."
+                                                value={searchProductoVenta}
+                                                onChange={(e) => setSearchProductoVenta(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-2 border rounded-lg mb-4"
+                                            />
                                         </div>
-
-                                        {/* Columna 3: Carrito / Resumen de Venta */}
-                                        <div className="lg:col-span-3 p-4 bg-white rounded-lg border shadow-md">
-                                            <h3 className="font-bold text-xl mb-3 border-b pb-2">Carrito de Venta</h3>
-                                            
-                                            {currentSaleItems.length === 0 ? (
-                                                <p className="text-gray-500">No hay productos agregados a la venta.</p>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    {currentSaleItems.map(item => (
-                                                        <div key={item.productoId} className="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
+                                        
+                                        {/* Lista de Productos Filtrados con control de cantidad */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2">
+                                            {productos.filter(p => 
+                                                p.nombre.toLowerCase().includes(searchProductoVenta.toLowerCase())
+                                            ).map(prod => {
+                                                const itemInCarrito = carrito.find(item => item.productId === prod.id);
+                                                const currentQuantity = itemInCarrito ? itemInCarrito.quantity : 0;
+                                                
+                                                return (
+                                                    <div key={prod.id} className={`p-3 rounded-lg border ${
+                                                        currentQuantity > 0 ? 'border-green-500 bg-green-100' : 'border-gray-200 hover:bg-gray-50'
+                                                    }`}>
+                                                        <div className="flex justify-between items-center">
                                                             <div>
-                                                                <span className="font-medium block">{item.nombre} x {item.cantidad}</span>
-                                                                <span className="text-xs text-gray-600">Precio unitario: S/. {item.precio.toFixed(2)}</span>
+                                                                <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
+                                                                <p className="text-green-600 font-bold">S/. {prod.precio.toFixed(2)}</p>
+                                                                <p className="text-gray-600 text-sm">Stock: {prod.stock}</p>
                                                             </div>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-blue-600">S/. {item.total.toFixed(2)}</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max={prod.stock}
+                                                                    value={currentQuantity}
+                                                                    onChange={(e) => handleProductChange(prod, parseInt(e.target.value) || 0)}
+                                                                    className="w-16 px-2 py-1 border rounded text-center"
+                                                                    disabled={prod.stock === 0}
+                                                                />
                                                                 <button
-                                                                    onClick={() => handleRemoveSaleItem(item.productoId)}
-                                                                    className="text-red-500 hover:text-red-700 p-1"
+                                                                    onClick={() => handleProductChange(prod, currentQuantity + 1)}
+                                                                    disabled={prod.stock <= currentQuantity}
+                                                                    className="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 disabled:bg-gray-300"
                                                                 >
-                                                                    <Trash size={16} />
+                                                                    +
                                                                 </button>
                                                             </div>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            <div className="mt-4 pt-3 border-t flex justify-between items-center">
-                                                <p className="text-xl font-bold">Total a Pagar:</p>
-                                                <p className="text-2xl font-bold text-green-700">
-                                                    S/. {currentSaleItems.reduce((sum, item) => sum + item.total, 0).toFixed(2)}
-                                                </p>
-                                            </div>
-                                            
-                                            <button
-                                                onClick={finalizarVenta}
-                                                disabled={!selectedVentaClienteId || currentSaleItems.length === 0 || selectedDate !== todayISO}
-                                                className="mt-4 w-full bg-purple-600 text-white px-6 py-3 rounded-lg text-lg font-bold hover:bg-purple-700 disabled:bg-gray-400"
-                                            >
-                                                Finalizar Venta
-                                            </button>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     </div>
-                                    {selectedDate !== todayISO && (
-                                        <p className="mt-4 text-center text-red-600 font-bold">
-                                            ⚠️ Solo se pueden registrar ventas para la fecha de hoy.
-                                        </p>
-                                    )}
+                                    
+                                    {/* Resumen de Carrito y Finalizar Venta */}
+                                    <div className="mb-6 p-4 border rounded-lg bg-purple-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-3">🛍️ 3. Carrito de Venta ({carrito.length} Items)</h3>
+                                        
+                                        <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                                            {carrito.length === 0 ? (
+                                                <p className="text-gray-500">El carrito está vacío.</p>
+                                            ) : (
+                                                carrito.map(item => (
+                                                    <div key={item.productId} className="flex justify-between items-center p-2 bg-white rounded shadow-sm">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium">{item.nombre}</span>
+                                                            <span className="text-sm text-gray-600">x{item.quantity}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-red-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
+                                                            <button
+                                                                onClick={() => handleRemoveFromCarrito(item.productId)}
+                                                                className="text-red-500 hover:text-red-700 p-1 rounded"
+                                                                title="Eliminar"
+                                                            >
+                                                                <Trash size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex justify-between items-center border-t pt-3">
+                                            <p className="text-xl font-bold">Total:</p>
+                                            <p className="text-xl font-bold text-purple-700">
+                                                S/. {carrito.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
+                                            </p>
+                                        </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Ventas de {formatDateForFilter(selectedDate)}</h3>
+                                        <button
+                                            onClick={finalizarVenta}
+                                            disabled={!selectedClientVentaId || carrito.length === 0}
+                                            className="w-full mt-4 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-300 font-bold"
+                                        >
+                                            Finalizar Venta
+                                        </button>
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas Registradas para el {getDisplayDate(selectedAttendanceDate)}</h3>
                                     <div className="space-y-2">
-                                        {ventasDelDia.map(v => {
+                                        {ventasWorkingDate
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                                            .map(v => {
                                             const cliente = clientes.find(c => c.id === v.clienteId);
                                             const producto = productos.find(p => p.id === v.productoId);
                                             return (
@@ -1145,10 +1818,10 @@
                                 </div>
                             )}
 
-                            {/* Pestaña INVENTARIO */}
                             {activeTab === 'inventario' && (
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Control de Inventario</h2>
+                                    
                                     <div className="space-y-3">
                                         {productos.map(prod => (
                                             <div key={prod.id} className={`p-4 rounded-lg border-2 ${
@@ -1185,19 +1858,182 @@
                                 </div>
                             )}
 
-                            {/* Pestaña REPORTES */}
-                            {activeTab === 'reportes' && (
+                            {activeTab === 'dashboard' && (
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">📈 Panel de Control (Dashboard)</h2>
                                     
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-purple-50 p-4 rounded-lg">
-                                            <h3 className="font-bold text-lg mb-3">💰 Ingresos de {formatDateForFilter(selectedDate)}</h3>
-                                            <div className="space-y-2">
-                                                <p>Clases: <span className="font-bold text-blue-600">S/. {totalPagosDelDia.toFixed(2)}</span></p>
-                                                <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasDelDia.toFixed(2)}</span></p>
-                                                <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalIngresosDelDia.toFixed(2)}</span></p>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Ingresos y Clientes Mensuales</h3>
+
+                                    {/* Nueva distribución: 2 columnas (Línea) + 1 columna (Dona Ingresos) + 1 columna (Dona Clientes) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                                        {/* GRÁFICO 1: Ingresos Diarios (Ocupa 2 columnas) */}
+                                        <div className="md:col-span-2">
+                                            <DashboardChart 
+                                                type="line"
+                                                data={dataIngresosDiarios}
+                                                options={{
+                                                    scales: {
+                                                        y: {
+                                                            beginAtZero: true,
+                                                            title: { display: true, text: 'Monto (S/.)' }
+                                                        },
+                                                        x: {
+                                                            title: { display: true, text: 'Fecha' }
+                                                        }
+                                                    }
+                                                }}
+                                                title="Ingreso Diario Total (Últimos 30 Días)"
+                                            />
+                                        </div>
+
+                                        {/* GRÁFICO 2: Ingresos por Fuente (Ocupa 1 columna) */}
+                                        <DashboardChart 
+                                            type="doughnut"
+                                            data={dataIngresosPorFuente}
+                                            options={{
+                                                plugins: {
+                                                    tooltip: {
+                                                        callbacks: {
+                                                            label: function(context) {
+                                                                let label = context.label || '';
+                                                                if (label) {
+                                                                    label += ': ';
+                                                                }
+                                                                if (context.parsed !== null) {
+                                                                    label += new Intl.NumberFormat('es-PE', { 
+                                                                        style: 'currency', 
+                                                                        currency: 'PEN' 
+                                                                    }).format(context.parsed);
+                                                                }
+                                                                return label;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            title="Distribución Total de Ingresos"
+                                        />
+
+                                        {/* NUEVO GRÁFICO 3: Estado de Clientes Mensuales (Ocupa 1 columna) */}
+                                        <DashboardChart 
+                                            type="doughnut"
+                                            data={dataEstadoMensual}
+                                            options={{}}
+                                            title="Estado de Clientes Mensuales"
+                                        />
+                                    </div>
+                                    
+                                    {/* NUEVA SECCIÓN DE LEALTAD Y RETENCIÓN */}
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 mt-8">Lealtad y Retención</h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                        {/* KPI Tasa de Renovación (Ocupa 1 columna) */}
+                                        <div className="p-4 bg-purple-50 rounded-lg shadow-md h-full flex flex-col justify-center items-center">
+                                            <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">Tasa de Renovación Mensual</h3>
+                                            <p className="text-5xl font-extrabold" style={{ color: parseFloat(kpiRenovacion.tasa) >= 70 ? 'rgb(52, 211, 153)' : 'rgb(248, 113, 113)' }}>
+                                                {kpiRenovacion.tasa}%
+                                            </p>
+                                            <p className="text-sm text-gray-600 mt-2 text-center">
+                                                **{kpiRenovacion.renovaron}** de **{kpiRenovacion.potenciales}** clientes renovaron este mes.
+                                            </p>
+                                        </div>
+
+                                        {/* Bloque de Clientes Mensuales Totales */}
+                                        <div className="bg-purple-100 p-4 rounded-lg shadow-md flex flex-col justify-center">
+                                            <p className="text-sm text-gray-600">Total de Clientes con Membresía Mensual</p>
+                                            <p className="text-5xl font-bold text-purple-700 mt-2">{clientes.filter(c => c.tipoMembresia === 'mensual').length}</p>
+                                            <p className="text-sm text-gray-500 mt-2">Clientes registrados con esta opción.</p>
+                                        </div>
+
+                                        {/* Bloque de Ingreso Promedio (Opción para futuro, por ahora vacío para dejar espacio) */}
+                                        <div className="bg-gray-100 p-4 rounded-lg shadow-md flex flex-col justify-center">
+                                            <p className="text-sm text-gray-500">Próxima Métrica (Por implementar)</p>
+                                            <p className="text-2xl font-bold text-gray-400 mt-2">Métricas de Valor de Cliente</p>
+                                            <p className="text-sm text-gray-500 mt-2">Ej. Ingreso promedio por cliente (ARPU).</p>
+                                        </div>
+                                    </div>
+                                    {/* FIN SECCIÓN LEALTAD Y RETENCIÓN */}
+                                    
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen por Fecha Seleccionada</h3>
+                                    
+                                    {/* Controles de Reporte (se mantiene el reporte por fecha específica) */}
+                                    <div className="mb-8 p-4 border rounded-lg bg-gray-50">
+                                        <div className="mb-4 flex items-center gap-4 no-print">
+                                            <label className="font-medium text-gray-700">Seleccionar Fecha:</label>
+                                            <input
+                                                type="date"
+                                                value={selectedReportDate}
+                                                onChange={(e) => setSelectedReportDate(e.target.value)}
+                                                className="px-4 py-2 border rounded-lg w-48"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                            <div className="bg-purple-100 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600">Total Ingresos ({getAttendanceDateString(selectedReportDate)})</p>
+                                                <p className="text-2xl font-bold text-purple-700">S/. {totalIngresosReporte.toFixed(2)}</p>
                                             </div>
+                                            <div className="bg-blue-100 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600">Asistencias</p>
+                                                <p className="text-2xl font-bold text-blue-700">{asistenciasReporte.length}</p>
+                                            </div>
+                                            <div className="bg-green-100 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600">Ventas Productos</p>
+                                                <p className="text-2xl font-bold text-green-700">S/. {totalVentasReporte.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+
+                                        <h4 className="font-bold text-lg mt-6 mb-3">Detalle de Asistencias ({asistenciasReporte.length})</h4>
+                                        <div className="max-h-60 overflow-y-auto space-y-2 border p-3 rounded bg-white">
+                                            {asistenciasReporte.length > 0 ? (
+                                                asistenciasReporte.map(a => {
+                                                    const cliente = clientes.find(c => c.id === a.clienteId);
+                                                    return (
+                                                        <div key={a.id} className="flex justify-between items-center p-2 bg-green-50 rounded shadow-sm">
+                                                            <span className="font-medium">{cliente?.nombre}</span>
+                                                            <span className="text-sm text-green-600 font-bold">S/. {a.montoCobrado.toFixed(2)}</span>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : <p className="text-gray-500">No hay asistencias registradas para esta fecha.</p>}
+                                        </div>
+
+                                        <h4 className="font-bold text-lg mt-6 mb-3">Detalle de Ventas ({ventasReporte.length})</h4>
+                                        <div className="max-h-60 overflow-y-auto space-y-2 border p-3 rounded bg-white">
+                                            {ventasReporte.length > 0 ? (
+                                                ventasReporte.map(v => {
+                                                    const cliente = clientes.find(c => c.id === v.clienteId);
+                                                    const producto = productos.find(p => p.id === v.productoId);
+                                                    return (
+                                                        <div key={v.id} className="flex justify-between items-center p-2 bg-blue-50 rounded shadow-sm">
+                                                            <span className="font-medium">{cliente?.nombre} - {producto?.nombre} x{v.cantidad}</span>
+                                                            <span className="text-sm text-green-600 font-bold">S/. {v.total.toFixed(2)}</span>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : <p className="text-gray-500">No hay ventas registradas para esta fecha.</p>}
+                                        </div>
+                                    </div>
+
+                                    {/* RESUMEN GENERAL HISTÓRICO */}
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General Histórico</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy ({getAttendanceDateString(new Date().toISOString())})</h3>
+                                            {/* Usamos los datos filtrados por "hoy" para este KPI, no la working date */}
+                                            {(() => {
+                                                const hoyISO = new Date().toISOString().split('T')[0];
+                                                const vHoy = ventas.filter(v => getAttendanceDateString(v.fecha) === hoyISO).reduce((sum, v) => sum + v.total, 0);
+                                                const pHoy = pagos.filter(p => getAttendanceDateString(p.fecha) === hoyISO).reduce((sum, p) => sum + p.monto, 0);
+                                                return (
+                                                    <div className="space-y-2">
+                                                        <p>Clases y Mensualidades: <span className="font-bold text-blue-600">S/. {pHoy.toFixed(2)}</span></p>
+                                                        <p>Productos: <span className="font-bold text-green-600">S/. {vHoy.toFixed(2)}</span></p>
+                                                        <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {(vHoy + pHoy).toFixed(2)}</span></p>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
 
                                         <div className="bg-blue-50 p-4 rounded-lg">
@@ -1210,7 +2046,7 @@
                                         </div>
 
                                         <div className="bg-green-50 p-4 rounded-lg">
-                                            <h3 className="font-bold text-lg mb-3">📊 Productos Más Vendidos (Histórico)</h3>
+                                            <h3 className="font-bold text-lg mb-3">📊 Productos Más Vendidos</h3>
                                             {(() => {
                                                 const ventasPorProducto = {};
                                                 ventas.forEach(v => {
@@ -1247,36 +2083,31 @@
                                             )}
                                         </div>
 
-                                        <div className="bg-yellow-50 p-4 rounded-lg">
-                                            <h3 className="font-bold text-lg mb-3">📅 Asistencia</h3>
-                                            <div className="space-y-2">
-                                                <p>Asistencias de {formatDateForFilter(selectedDate)}: <span className="font-bold">{asistenciasDelDia.length}</span></p>
-                                                <p>Total asistencias (Histórico): <span className="font-bold">{asistencias.length}</span></p>
-                                                <p>Segundas clases {formatDateForFilter(selectedDate)}: <span className="font-bold text-blue-600">
-                                                    {asistenciasDelDia.filter(a => a.esSegundaClaseDelDia).length}
-                                                </span></p>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-pink-50 p-4 rounded-lg">
+                                        <div className="bg-yellow-50 p-4 rounded-lg md:col-span-2">
                                             <h3 className="font-bold text-lg mb-3">💵 Ingresos Totales (Histórico)</h3>
-                                            <div className="space-y-2">
-                                                <p>Clases (total): <span className="font-bold text-blue-600">
-                                                    S/. {pagos.filter(p => p.tipo === 'clase').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
-                                                </span></p>
-                                                <p>Mensualidades (total): <span className="font-bold text-purple-600">
-                                                    S/. {pagos.filter(p => p.tipo === 'mensualidad').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
-                                                </span></p>
-                                                <p>Productos (total): <span className="font-bold text-green-600">
-                                                    S/. {ventas.reduce((sum, v) => sum + v.total, 0).toFixed(2)}
-                                                </span></p>
-                                                <p className="text-lg pt-2 border-t font-bold">Total general: 
-                                                    <span className="text-purple-600"> S/. {
-                                                        (pagos.reduce((sum, p) => sum + p.monto, 0) + 
-                                                        ventas.reduce((sum, v) => sum + v.total, 0)).toFixed(2)
-                                                    }</span>
-                                                </p>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="space-y-2">
+                                                    <p>Clases (total): <span className="font-bold text-blue-600">
+                                                        S/. {pagos.filter(p => p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
+                                                    </span></p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p>Mensualidades (total): <span className="font-bold text-purple-600">
+                                                        S/. {pagos.filter(p => p.tipo === 'mensualidad').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
+                                                    </span></p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p>Productos (total): <span className="font-bold text-green-600">
+                                                        S/. {ventas.reduce((sum, v) => sum + v.total, 0).toFixed(2)}
+                                                    </span></p>
+                                                </div>
                                             </div>
+                                            <p className="text-xl pt-3 border-t mt-3 font-bold text-purple-700">
+                                                Total general: S/. {(
+                                                    pagos.reduce((sum, p) => sum + p.monto, 0) + 
+                                                    ventas.reduce((sum, v) => sum + v.total, 0)
+                                                ).toFixed(2)}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
