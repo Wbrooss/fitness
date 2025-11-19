@@ -47,7 +47,7 @@
             }
         };
 
-        // Iconos SVG (Mantenidos para la funcionalidad)
+        // Iconos SVG (Mantenidos)
         const Users = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -162,10 +162,11 @@
             const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
             const [showAddCliente, setShowAddCliente] = useState(false);
             
-            // 🟢 CAMBIO 1: Estado para la fecha seleccionada (formato YYYY-MM-DD)
-            const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
+            // Estado para la fecha seleccionada (formato YYYY-MM-DD)
+            const todayISO = new Date().toISOString().split('T')[0];
+            const [selectedDate, setSelectedDate] = useState(todayISO); 
 
-            // 🟢 CAMBIO 2 & 3: Estados para la nueva lógica de ventas
+            // Estados para la nueva lógica de ventas
             const [searchVentaCliente, setSearchVentaCliente] = useState('');
             const [selectedVentaClienteId, setSelectedVentaClienteId] = useState(null);
             const [searchVentaProducto, setSearchVentaProducto] = useState('');
@@ -215,14 +216,14 @@
                 storage.set('pagos', JSON.stringify(pagos));
             }, [pagos]);
 
-            // 🟢 Helper para formatear la fecha a un string de comparación (e.g., '19/11/2025')
+            // Helper para formatear la fecha a un string de comparación (e.g., '19/11/2025')
             const formatDateForFilter = (dateStr) => {
                 if (!dateStr) return '';
-                // Asegura que la cadena ISO o Date se convierta a la misma representación local
+                // Asegura que la cadena ISO o Date se convierta a la misma representación local (sin hora)
                 return new Date(dateStr).toLocaleDateString('es-PE');
             };
 
-            // 🟢 Variables basadas en la fecha seleccionada
+            // Variables basadas en la fecha seleccionada
             const dateToFilter = formatDateForFilter(selectedDate);
             const asistenciasDelDia = asistencias.filter(a => 
                 formatDateForFilter(a.fecha) === dateToFilter
@@ -243,7 +244,7 @@
             // -------------------------------------------------------------------------
 
             const exportarAExcel = () => {
-                // ... (lógica de exportación a Excel se mantiene igual, exporta todo el histórico)
+                // ... (lógica de exportación a Excel se mantiene igual)
                 const wb = XLSX.utils.book_new();
 
                 // Hoja de Clientes
@@ -332,11 +333,11 @@
                 y += 10;
                 doc.text(`Asistencias: ${asistenciasDelDia.length}`, 20, y);
                 y += 7;
-                doc.text(`Ingresos por clases: S/. ${totalPagosDelDia}`, 20, y);
+                doc.text(`Ingresos por clases: S/. ${totalPagosDelDia.toFixed(2)}`, 20, y);
                 y += 7;
-                doc.text(`Ventas de productos: S/. ${totalVentasDelDia}`, 20, y);
+                doc.text(`Ventas de productos: S/. ${totalVentasDelDia.toFixed(2)}`, 20, y);
                 y += 7;
-                doc.text(`Total ingresos: S/. ${totalPagosDelDia + totalVentasDelDia}`, 20, y);
+                doc.text(`Total ingresos: S/. ${(totalPagosDelDia + totalVentasDelDia).toFixed(2)}`, 20, y);
 
                 y += 15; // Posición de inicio para la primera tabla
 
@@ -350,7 +351,7 @@
                     const hora = a.fechaFormato.split(', ')[1]; 
                     return [
                         cliente?.nombre || 'Desconocido',
-                        a.montoCobrado > 0 ? `S/. ${a.montoCobrado}` : 'Mensualidad',
+                        a.montoCobrado > 0 ? `S/. ${a.montoCobrado.toFixed(2)}` : 'Mensualidad',
                         hora
                     ];
                 });
@@ -379,7 +380,7 @@
                         cliente?.nombre || 'Desconocido',
                         producto?.nombre || 'Desconocido',
                         v.cantidad,
-                        `S/. ${v.total}`,
+                        `S/. ${v.total.toFixed(2)}`,
                         hora
                     ];
                 });
@@ -397,10 +398,16 @@
             }; 
             
             // -------------------------------------------------------------------------
-            // Lógica de Venta de Productos (NUEVA LÓGICA)
+            // Lógica de Venta de Productos (Mantenida)
             // -------------------------------------------------------------------------
             
             const handleAddSaleItem = (productoId, cantidadStr) => {
+                // Validación para no permitir ventas en fechas futuras
+                if (selectedDate !== todayISO) {
+                    alert('Solo puedes registrar ventas para el día de HOY.');
+                    return;
+                }
+
                 const cantidad = parseInt(cantidadStr) || 1;
                 const producto = productos.find(p => p.id === productoId);
 
@@ -436,6 +443,12 @@
             };
 
             const finalizarVenta = () => {
+                // Validación final para no permitir ventas en fechas futuras
+                if (selectedDate !== todayISO) {
+                    alert('Solo puedes finalizar ventas para el día de HOY.');
+                    return;
+                }
+                
                 const cliente = clientes.find(c => c.id === selectedVentaClienteId);
                 
                 if (!cliente) {
@@ -496,10 +509,29 @@
             };
 
             // -------------------------------------------------------------------------
-            // Filtros y cálculos auxiliares (Mantenidos y actualizados)
+            // Lógica de Asistencia (CORREGIDA)
             // -------------------------------------------------------------------------
 
-            const agregarCliente = () => { /* ... */ }; // Mantenida
+            const agregarCliente = () => { 
+                /* ... (Lógica de agregar cliente se mantiene sin cambios) ... */
+                if (!nuevoCliente.nombre) {
+                    alert('El nombre del cliente no puede estar vacío.');
+                    return;
+                }
+
+                const newCliente = {
+                    id: Date.now(),
+                    nombre: nuevoCliente.nombre.trim(),
+                    tipoMembresia: nuevoCliente.tipoMembresia,
+                    fechaRegistro: new Date().toISOString()
+                };
+
+                setClientes([newCliente, ...clientes]);
+                setNuevoCliente({ nombre: '', tipoMembresia: 'por_clase' });
+                setShowAddCliente(false);
+            };
+
+            // Función auxiliar para el cálculo de precio (usa la fecha seleccionada para el filtro)
             const calcularPrecioClase = (clienteId) => {
                 const dateComparison = formatDateForFilter(selectedDate); // Usar fecha seleccionada
                 const asistenciasDiaCliente = asistencias.filter(a => 
@@ -512,6 +544,14 @@
             const registrarAsistencia = (clienteId) => {
                 const cliente = clientes.find(c => c.id === clienteId);
                 const dateComparison = formatDateForFilter(selectedDate); 
+                const todayComparison = formatDateForFilter(new Date().toISOString());
+
+                // 🔴 VALIDACIÓN CRÍTICA: Solo se permite registrar asistencia para HOY.
+                if (dateComparison !== todayComparison) {
+                    alert(`Solo puedes registrar asistencias para el día de HOY (${todayComparison}). La fecha seleccionada es ${dateComparison}.`);
+                    return;
+                }
+
                 const asistenciasDiaCliente = asistencias.filter(a => 
                     a.clienteId === clienteId && 
                     formatDateForFilter(a.fecha) === dateComparison
@@ -519,12 +559,6 @@
 
                 let montoCobrado = 0;
                 let requierePago = false;
-
-                // Solo se permite registrar asistencia para la fecha actual
-                if (dateComparison !== formatDateForFilter(new Date().toISOString())) {
-                    alert('Solo puedes registrar asistencias para el día de HOY.');
-                    return;
-                }
 
                 if (cliente.tipoMembresia === 'mensual') {
                     if (asistenciasDiaCliente.length > 0) {
@@ -539,7 +573,7 @@
                 const asistencia = {
                     id: Date.now(),
                     clienteId,
-                    fecha: new Date().toISOString(),
+                    fecha: new Date().toISOString(), // Usa la fecha y hora REAL
                     fechaFormato: new Date().toLocaleString('es-PE', { 
                         day: '2-digit', 
                         month: '2-digit', 
@@ -559,7 +593,7 @@
                         clienteId,
                         tipo: 'clase',
                         monto: montoCobrado,
-                        fecha: new Date().toISOString(),
+                        fecha: new Date().toISOString(), // Usa la fecha y hora REAL
                         fechaFormato: asistencia.fechaFormato,
                         descripcion: asistenciasDiaCliente.length > 0 ? 'Segunda clase del día' : 'Clase individual'
                     };
@@ -567,8 +601,47 @@
                 }
             };
 
-            const pagarMensualidad = (clienteId) => { /* ... */ }; // Mantenida
-            const actualizarStock = (productoId, nuevoStock) => { /* ... */ }; // Mantenida
+            const pagarMensualidad = (clienteId) => { 
+                /* ... (Lógica de pago de mensualidad se mantiene sin cambios) ... */
+                const montoInput = document.getElementById(`monto-mensualidad-${clienteId}`);
+                const monto = parseFloat(montoInput?.value);
+
+                if (!monto || monto <= 0) {
+                    alert('Ingresa un monto válido para la mensualidad.');
+                    return;
+                }
+
+                const nowISO = new Date().toISOString();
+                const pago = {
+                    id: Date.now(),
+                    clienteId,
+                    tipo: 'mensualidad',
+                    monto,
+                    fecha: nowISO,
+                    fechaFormato: new Date().toLocaleString('es-PE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    descripcion: 'Pago de mensualidad'
+                };
+
+                setPagos([pago, ...pagos]);
+                alert('Mensualidad registrada exitosamente.');
+                if (montoInput) montoInput.value = '';
+            }; 
+            
+            const actualizarStock = (productoId, nuevoStock) => { 
+                /* ... (Lógica de stock se mantiene sin cambios) ... */
+                const stock = parseInt(nuevoStock);
+                if (isNaN(stock) || stock < 0) return;
+
+                setProductos(productos.map(p => 
+                    p.id === productoId ? { ...p, stock: stock } : p
+                ));
+            };
             
             // -------------------------------------------------------------------------
             // Filtros para la UI
@@ -578,12 +651,12 @@
                 c.nombre.toLowerCase().includes(searchCliente.toLowerCase())
             );
 
-            // 🟢 Filtro para el buscador de clientes en Ventas (CAMBIO 2)
+            // Filtro para el buscador de clientes en Ventas
             const clientesVentaFiltrados = clientes.filter(c => 
                 c.nombre.toLowerCase().includes(searchVentaCliente.toLowerCase())
             );
 
-            // 🟢 Filtro para el buscador de productos en Ventas (CAMBIO 3)
+            // Filtro para el buscador de productos en Ventas
             const productosVentaFiltrados = productos.filter(p => 
                 p.nombre.toLowerCase().includes(searchVentaProducto.toLowerCase())
             );
@@ -621,13 +694,15 @@
                                     <p className="text-gray-600">Cardio, Baile & Herbalife</p>
                                 </div>
                                 
-                                {/* 🟢 CAMBIO 1: Selector de Fecha */}
+                                {/* Selector de Fecha */}
                                 <div className="flex flex-col items-end gap-2 no-print">
                                     <label className="text-sm font-medium text-gray-700">Reporte del Día:</label>
                                     <input
                                         type="date"
                                         value={selectedDate}
                                         onChange={(e) => setSelectedDate(e.target.value)}
+                                        // 🔴 CORRECCIÓN 1: Restringe la fecha máxima a HOY.
+                                        max={todayISO} 
                                         className="px-3 py-2 border rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
                                     />
                                     <div className="flex gap-2 mt-2">
@@ -650,7 +725,7 @@
                             </div>
                         </div>
 
-                        {/* 🟢 CAMBIO 1: Cards Dinámicos (usan variables DelDia) */}
+                        {/* Cards Dinámicos (usan variables DelDia) */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
@@ -768,11 +843,11 @@
                                                 ? (asistenciasDelDia.filter(a => a.clienteId === cliente.id).length > 0 ? 6 : 0)
                                                 : calcularPrecioClase(cliente.id);
                                             
-                                            // Deshabilitar registro si la fecha seleccionada no es HOY
-                                            const isPastOrFuture = formatDateForFilter(selectedDate) !== formatDateForFilter(new Date().toISOString());
+                                            // La asistencia solo es posible si selectedDate es HOY
+                                            const isToday = formatDateForFilter(selectedDate) === formatDateForFilter(new Date().toISOString());
 
                                             return (
-                                                <div key={cliente.id} className={`p-3 border rounded-lg ${isPastOrFuture ? 'opacity-50' : 'hover:bg-gray-50'}`}>
+                                                <div key={cliente.id} className={`p-3 border rounded-lg ${!isToday ? 'opacity-50' : 'hover:bg-gray-50'}`}>
                                                     <div className="flex justify-between items-start mb-2">
                                                         <div>
                                                             <span className="font-medium block">{cliente.nombre}</span>
@@ -786,14 +861,14 @@
                                                         </div>
                                                         <button
                                                             onClick={() => registrarAsistencia(cliente.id)}
-                                                            disabled={isPastOrFuture}
+                                                            disabled={!isToday}
                                                             className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1 disabled:bg-gray-400"
                                                         >
                                                             ✓ Presente
-                                                            {precio > 0 && <span className="text-xs">S/. {precio}</span>}
+                                                            {precio > 0 && <span className="text-xs">S/. {precio.toFixed(2)}</span>}
                                                         </button>
                                                     </div>
-                                                    {isPastOrFuture && <p className="text-red-500 text-xs">Solo se registra asistencia para hoy.</p>}
+                                                    {!isToday && <p className="text-red-500 text-xs">Asistencia solo para hoy.</p>}
                                                 </div>
                                             );
                                         })}
@@ -813,7 +888,7 @@
                                                     </div>
                                                     <div className="text-right">
                                                         {a.montoCobrado > 0 && (
-                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado}</span>
+                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado.toFixed(2)}</span>
                                                         )}
                                                         <span className="text-gray-600 text-xs">{a.fechaFormato}</span>
                                                     </div>
@@ -828,7 +903,6 @@
                             {activeTab === 'mensualidades' && (
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Mensualidades</h2>
-                                    {/* ... (Contenido de Mensualidades) ... */}
                                     <div className="space-y-3">
                                         {clientes.filter(c => c.tipoMembresia === 'mensual').map(cliente => {
                                             const mesActual = new Date().getMonth();
@@ -839,11 +913,14 @@
                                                 new Date(p.fecha).getMonth() === mesActual &&
                                                 new Date(p.fecha).getFullYear() === añoActual
                                             );
+                                            
+                                            // Solo se permite pagar si la fecha seleccionada es hoy
+                                            const isToday = selectedDate === todayISO;
 
                                             return (
                                                 <div key={cliente.id} className={`p-4 rounded-lg border-2 ${
                                                     yaPago ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'
-                                                }`}>
+                                                } ${!isToday ? 'opacity-50' : ''}`}>
                                                     <div className="flex justify-between items-center">
                                                         <div>
                                                             <h4 className="font-bold text-gray-800">{cliente.nombre}</h4>
@@ -858,15 +935,18 @@
                                                                     id={`monto-mensualidad-${cliente.id}`}
                                                                     placeholder="Monto"
                                                                     className="w-24 px-3 py-2 border rounded"
+                                                                    disabled={!isToday}
                                                                 />
                                                                 <button
                                                                     onClick={() => pagarMensualidad(cliente.id)}
-                                                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                                                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                                                    disabled={!isToday}
                                                                 >
                                                                     Pagar
                                                                 </button>
                                                             </div>
                                                         )}
+                                                        {!isToday && <span className="text-red-500 text-xs">Solo hoy.</span>}
                                                     </div>
                                                 </div>
                                             );
@@ -884,7 +964,7 @@
                                                         <p className="text-sm text-gray-600">{p.descripcion}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-green-600">S/. {p.monto}</p>
+                                                        <p className="font-bold text-green-600">S/. {p.monto.toFixed(2)}</p>
                                                         <p className="text-xs text-gray-500">{p.fechaFormato}</p>
                                                     </div>
                                                 </div>
@@ -894,12 +974,12 @@
                                 </div>
                             )}
 
-                            {/* Pestaña VENTAS (CAMBIOS 2 y 3 aplicados aquí) */}
+                            {/* Pestaña VENTAS */}
                             {activeTab === 'ventas' && (
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Registrar Venta de Productos</h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Registrar Venta de Productos ({formatDateForFilter(selectedDate)})</h2>
                                     
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
+                                    <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 no-print ${selectedDate !== todayISO ? 'opacity-50 pointer-events-none' : ''}`}>
                                         
                                         {/* Columna 1: Selección de Cliente */}
                                         <div className="p-4 bg-gray-50 rounded-lg border lg:col-span-1">
@@ -910,7 +990,7 @@
                                                 </span>
                                             </h3>
                                             
-                                            {/* 🟢 CAMBIO 2: Buscador de Cliente */}
+                                            {/* Buscador de Cliente */}
                                             <div className="relative mb-2">
                                                 <input
                                                     type="text"
@@ -950,7 +1030,7 @@
                                         <div className="p-4 bg-gray-50 rounded-lg border lg:col-span-2">
                                             <h3 className="font-bold text-lg mb-3">Agregar Productos</h3>
                                             
-                                            {/* 🟢 CAMBIO 3: Buscador de Productos */}
+                                            {/* Buscador de Productos */}
                                             <div className="relative mb-3">
                                                 <input
                                                     type="text"
@@ -967,7 +1047,7 @@
                                                     <div key={prod.id} className={`p-2 border rounded-lg ${prod.stock === 0 ? 'bg-red-50 opacity-60' : 'bg-white hover:border-green-400'}`}>
                                                         <h4 className="font-medium">{prod.nombre}</h4>
                                                         <p className="text-xs text-gray-600">Stock: {prod.stock}</p>
-                                                        <p className="text-sm font-bold text-green-600">S/. {prod.precio}</p>
+                                                        <p className="text-sm font-bold text-green-600">S/. {prod.precio.toFixed(2)}</p>
                                                         <div className="flex gap-1 mt-1">
                                                             <input
                                                                 type="number"
@@ -1030,13 +1110,18 @@
                                             
                                             <button
                                                 onClick={finalizarVenta}
-                                                disabled={!selectedVentaClienteId || currentSaleItems.length === 0}
+                                                disabled={!selectedVentaClienteId || currentSaleItems.length === 0 || selectedDate !== todayISO}
                                                 className="mt-4 w-full bg-purple-600 text-white px-6 py-3 rounded-lg text-lg font-bold hover:bg-purple-700 disabled:bg-gray-400"
                                             >
                                                 Finalizar Venta
                                             </button>
                                         </div>
                                     </div>
+                                    {selectedDate !== todayISO && (
+                                        <p className="mt-4 text-center text-red-600 font-bold">
+                                            ⚠️ Solo se pueden registrar ventas para la fecha de hoy.
+                                        </p>
+                                    )}
 
                                     <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Ventas de {formatDateForFilter(selectedDate)}</h3>
                                     <div className="space-y-2">
@@ -1064,7 +1149,6 @@
                             {activeTab === 'inventario' && (
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Control de Inventario</h2>
-                                    {/* ... (Contenido de Inventario) ... */}
                                     <div className="space-y-3">
                                         {productos.map(prod => (
                                             <div key={prod.id} className={`p-4 rounded-lg border-2 ${
@@ -1075,7 +1159,7 @@
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
                                                         <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
-                                                        <p className="text-gray-600">S/. {prod.precio}</p>
+                                                        <p className="text-gray-600">S/. {prod.precio.toFixed(2)}</p>
                                                     </div>
                                                     {prod.stock < 10 && (
                                                         <div className="flex items-center gap-1 text-orange-600">
