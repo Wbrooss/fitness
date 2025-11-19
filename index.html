@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         body {
@@ -178,6 +179,177 @@
                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
             </svg>
         );
+        
+        // ==========================================================
+        // FUNCIONES GLOBALES DE EXPORTACIÓN (CORRECCIÓN)
+        // ==========================================================
+
+        const exportarAExcel = () => {
+            // Usamos la misma estructura de datos que se usa para el PDF
+            const data = {
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                asistencias: JSON.parse(localStorage.getItem('asistencias') || '[]'),
+                productos: JSON.parse(localStorage.getItem('productos') || '[]'),
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                pagos: JSON.parse(localStorage.getItem('pagos') || '[]'),
+            };
+
+            const ws_clientes = XLSX.utils.json_to_sheet(data.clientes.map(c => ({
+                ID: c.id,
+                Nombre: c.nombre,
+                Membresia: c.tipoMembresia,
+                'Fecha Registro': new Date(c.fechaRegistro).toLocaleDateString('es-PE')
+            })));
+
+            const ws_asistencias = XLSX.utils.json_to_sheet(data.asistencias.map(a => {
+                const cliente = data.clientes.find(c => c.id === a.clienteId);
+                return {
+                    Cliente: cliente ? cliente.nombre : 'Desconocido',
+                    Fecha: new Date(a.fecha).toLocaleDateString('es-PE'),
+                    'Hora Registro': a.horaRegistro,
+                    Instructor: a.instructor,
+                    Horario: a.horario,
+                    'Monto Cobrado': a.montoCobrado,
+                };
+            }));
+
+            const ws_pagos = XLSX.utils.json_to_sheet(data.pagos.map(p => {
+                const cliente = data.clientes.find(c => c.id === p.clienteId);
+                return {
+                    Cliente: cliente ? cliente.nombre : 'Desconocido',
+                    Tipo: p.tipo,
+                    Monto: p.monto,
+                    Fecha: new Date(p.fecha).toLocaleDateString('es-PE'),
+                    Descripcion: p.descripcion
+                };
+            }));
+
+            const ws_ventas = XLSX.utils.json_to_sheet(data.ventas.map(v => {
+                const cliente = data.clientes.find(c => c.id === v.clienteId);
+                const producto = data.productos.find(p => p.id === v.productoId);
+                return {
+                    Cliente: cliente ? cliente.nombre : 'Desconocido',
+                    Producto: producto ? producto.nombre : 'Desconocido',
+                    Cantidad: v.cantidad,
+                    Total: v.total,
+                    Fecha: new Date(v.fecha).toLocaleDateString('es-PE')
+                };
+            }));
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws_clientes, "Clientes");
+            XLSX.utils.book_append_sheet(wb, ws_asistencias, "Asistencias");
+            XLSX.utils.book_append_sheet(wb, ws_pagos, "Pagos");
+            XLSX.utils.book_append_sheet(wb, ws_ventas, "Ventas");
+
+            XLSX.writeFile(wb, "Reporte_General_Fitness.xlsx");
+        };
+
+        const exportarAPDF = () => {
+            // Definición de getAttendanceDateString (necesaria para el PDF diario)
+            const getAttendanceDateString = (dateISO) => {
+                if (!dateISO) return null;
+                return dateISO.substring(0, 10);
+            }
+            
+            // Asistencia siempre se registra para la fecha de hoy
+            const selectedDate = new Date().toISOString().split('T')[0];
+            const data = {
+                clientes: JSON.parse(localStorage.getItem('clientes') || '[]'),
+                asistencias: JSON.parse(localStorage.getItem('asistencias') || '[]'),
+                ventas: JSON.parse(localStorage.getItem('ventas') || '[]'),
+                pagos: JSON.parse(localStorage.getItem('pagos') || '[]'),
+                productos: JSON.parse(localStorage.getItem('productos') || '[]'),
+            };
+            
+            const asistenciasHoy = data.asistencias.filter(a => 
+                getAttendanceDateString(a.fecha) === selectedDate
+            ).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+            const ventasHoy = data.ventas.filter(v => 
+                getAttendanceDateString(v.fecha) === selectedDate
+            );
+            
+            const pagosHoy = data.pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === selectedDate
+            );
+
+            const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+            const totalIngresos = totalVentasHoy + totalPagosHoy;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const margin = 15;
+            let y = margin;
+            const pageWidth = doc.internal.pageSize.width;
+            
+            // Título
+            doc.setFontSize(18);
+            doc.text(`Reporte Diario - ${selectedDate}`, pageWidth / 2, y, { align: 'center' });
+            y += 10;
+            
+            // Resumen de ingresos
+            doc.setFontSize(12);
+            doc.text(`💰 Ingreso Total: S/. ${totalIngresos.toFixed(2)}`, margin, y);
+            doc.text(`👥 Asistencias: ${asistenciasHoy.length}`, pageWidth / 2, y);
+            y += 7;
+            doc.text(`💵 Pagos Clases/Mensualidad: S/. ${totalPagosHoy.toFixed(2)}`, margin, y);
+            doc.text(`🛒 Ventas Productos: S/. ${totalVentasHoy.toFixed(2)}`, pageWidth / 2, y);
+            y += 10;
+            
+            // Tabla de Asistencias
+            doc.setFontSize(14);
+            doc.text("Detalle de Asistencias", margin, y);
+            y += 5;
+
+            const asistenciasBody = asistenciasHoy.map(a => {
+                const cliente = data.clientes.find(c => c.id === a.clienteId);
+                return [
+                    cliente ? cliente.nombre : 'Desconocido',
+                    a.instructor,
+                    a.horario,
+                    a.montoCobrado.toFixed(2),
+                    a.esSegundaClaseDelDia ? 'Sí' : 'No',
+                ];
+            });
+
+            doc.autoTable({
+                startY: y,
+                head: [['Cliente', 'Instructor', 'Horario', 'Monto (S/.)', '2da Clase']],
+                body: asistenciasBody,
+                theme: 'grid',
+                headStyles: { fillColor: [126, 34, 206] }
+            });
+            y = doc.autoTable.previous.finalY + 10;
+            
+            // Tabla de Ventas
+            doc.setFontSize(14);
+            doc.text("Detalle de Ventas de Productos", margin, y);
+            y += 5;
+
+            const ventasBody = ventasHoy.map(v => {
+                const cliente = data.clientes.find(c => c.id === v.clienteId);
+                const producto = data.productos.find(p => p.id === v.productoId);
+                return [
+                    cliente ? cliente.nombre : 'Desconocido',
+                    producto ? producto.nombre : 'Desconocido',
+                    v.cantidad,
+                    v.total.toFixed(2)
+                ];
+            });
+            
+            doc.autoTable({
+                startY: y,
+                head: [['Cliente', 'Producto', 'Cantidad', 'Total (S/.)']],
+                body: ventasBody,
+                theme: 'grid',
+                headStyles: { fillColor: [6, 78, 59] }
+            });
+
+            doc.save(`Reporte_Diario_${selectedDate}.pdf`);
+        };
+        // FIN FUNCIONES GLOBALES DE EXPORTACIÓN
         
         // ==========================================================
         // NUEVO COMPONENTE: Gráfico con Chart.js
