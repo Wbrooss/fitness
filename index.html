@@ -65,10 +65,10 @@
         // Iconos SVG (mantenidos)
         const Users = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <path d="M17 21v-2a4 4 4 0 0 0-4-4H5a4 4 4 0 0 0-4 4v2"></path>
                 <circle cx="9" cy="7" r="4"></circle>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                <path d="M23 21v-2a4 4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 4 0 0 1 0 7.75"></path>
             </svg>
         );
 
@@ -76,13 +76,13 @@
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <circle cx="9" cy="21" r="1"></circle>
                 <circle cx="20" cy="21" r="1"></circle>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                <path d="M1 1h4l2.68 13.39a2 2 2 0 0 0 2 1.61h9.72a2 2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
         );
 
         const Package = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <path d="M21 16V8a2 2 2 0 0 0-1-1.73l-7-4a2 2 2 0 0 0-2 0l-7 4A2 2 2 0 0 0 3 8v8a2 2 2 0 0 0 1 1.73l7 4a2 2 2 0 0 0 2 0l7-4A2 2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
@@ -144,7 +144,7 @@
 
         const Download = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <path d="M21 15v4a2 2 2 0 0 1-2 2H5a2 2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
@@ -167,8 +167,8 @@
         const Trash = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <path d="M3 6h18"></path>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <path d="M19 6v14a2 2 2 0 0 1-2 2H7a2 2 2 0 0 1-2-2V6"></path>
+                <path d="M8 6V4a2 2 2 0 0 1 2-2h4a2 2 2 0 0 1 2 2v2"></path>
                 <line x1="10" y1="11" x2="10" y2="17"></line>
                 <line x1="14" y1="11" x2="14" y2="17"></line>
             </svg>
@@ -176,7 +176,7 @@
 
         const Edit = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                <path d="M17 3a2.828 2.828 2 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
             </svg>
         );
         
@@ -521,7 +521,7 @@
                 const pagos = JSON.parse(localStorage.getItem('pagos') || '[]');
                 const getFechaVencimientoLocal = (clienteId) => {
                     const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
-                        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+                        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Más reciente primero
 
                     if (pagosMensuales.length === 0) return null;
 
@@ -618,6 +618,43 @@
                 mensaje: `Base de ${countClientesPotenciales} clientes potenciales a renovar (que tuvieron mensualidad en el mes pasado).`
             };
         };
+
+        // ==========================================================
+        // COMPONENTES AUXILIARES FALTANTES (¡CORRECCIÓN!)
+        // ==========================================================
+        
+        // COMPONENTE: Modal genérico
+        const Modal = ({ title, children, onClose }) => (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                    <div className="flex justify-between items-center mb-4 border-b pb-2">
+                        <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+                        <button onClick={onClose} className="text-gray-500 hover:text-gray-800">
+                            <X size={24} />
+                        </button>
+                    </div>
+                    {children}
+                </div>
+            </div>
+        );
+
+        // COMPONENTE: Botón de Pestaña (Necesita recibir activeTab y setActiveTab como props)
+        const TabButton = ({ id, icon: Icon, label, count = 0, activeTab, setActiveTab }) => (
+            <button
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    activeTab === id
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+                <Icon size={20} />
+                {label}
+                {count > 0 && (
+                    <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center ml-1">{count}</span>
+                )}
+            </button>
+        );
 
 
         // ==========================================================
@@ -813,7 +850,7 @@
                 const mensualidadActiva = isMensualidadActivaEnFecha(clienteId, attendanceDateString);
 
                 if (cliente.tipoMembresia === 'mensual' && mensualidadActiva) {
-                    // Si es mensual y está activa, la clase es gratis (0), solo se cobra la segunda.
+                    // Si es mensual y está activa, la clase es gratuita (0), solo se cobra la segunda.
                     const asistenciasEnFechaCliente = asistencias.filter(a => 
                         a.clienteId === clienteId && 
                         getAttendanceDateString(a.fecha) === attendanceDateString
@@ -1151,11 +1188,12 @@
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-6 no-print">
-                            <TabButton id="asistencia" icon={Users} label="Asistencia" />
-                            <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" />
-                            <TabButton id="ventas" icon={ShoppingCart} label="Ventas" />
-                            <TabButton id="inventario" icon={Package} label="Inventario" count={productos.filter(p => p.stock < 10).length} />
-                            <TabButton id="dashboard" icon={BarChart3} label="Dashboard" />
+                            {/* COMPONENTES TAB BUTTON CON PROPS ACTUALIZADOS */}
+                            <TabButton id="asistencia" icon={Users} label="Asistencia" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="ventas" icon={ShoppingCart} label="Ventas" activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="inventario" icon={Package} label="Inventario" count={productos.filter(p => p.stock < 10).length} activeTab={activeTab} setActiveTab={setActiveTab} />
+                            <TabButton id="dashboard" icon={BarChart3} label="Dashboard" activeTab={activeTab} setActiveTab={setActiveTab} />
                         </div>
 
                         <div className="bg-white rounded-xl shadow-lg p-6">
