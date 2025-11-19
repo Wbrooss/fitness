@@ -76,13 +76,13 @@
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <circle cx="9" cy="21" r="1"></circle>
                 <circle cx="20" cy="21" r="1"></circle>
-                <path d="M1 1h4l2.68 13.39a2 2 2 0 0 0 2 1.61h9.72a2 2 2 0 0 0 2-1.61L23 6H6"></path>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
             </svg>
         );
 
         const Package = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M21 16V8a2 2 2 0 0 0-1-1.73l-7-4a2 2 2 0 0 0-2 0l-7 4A2 2 2 0 0 0 3 8v8a2 2 2 0 0 0 1 1.73l7 4a2 2 2 0 0 0 2 0l7-4A2 2 2 0 0 0 21 16z"></path>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
             </svg>
@@ -144,7 +144,7 @@
 
         const Download = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
-                <path d="M21 15v4a2 2 2 0 0 1-2 2H5a2 2 2 0 0 1-2-2v-4"></path>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
@@ -167,8 +167,8 @@
         const Trash = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <path d="M3 6h18"></path>
-                <path d="M19 6v14a2 2 2 0 0 1-2 2H7a2 2 2 0 0 1-2-2V6"></path>
-                <path d="M8 6V4a2 2 2 0 0 1 2-2h4a2 2 2 0 0 1 2 2v2"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 <line x1="10" y1="11" x2="10" y2="17"></line>
                 <line x1="14" y1="11" x2="14" y2="17"></line>
             </svg>
@@ -504,35 +504,28 @@
         };
 
         // KPI 3: Clientes Mensuales Activos vs. Inactivos (Gráfico de Dona)
-        const procesarEstadoMensual = (clientes, getFechaVencimiento) => {
+        const procesarEstadoMensual = (clientes, pagos) => {
+            // Helper function to get Vencimiento date (redefined locally as it depends on `pagos`)
+            const getFechaVencimientoLocal = (clienteId) => {
+                const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Más reciente primero
+
+                if (pagosMensuales.length === 0) return null;
+
+                const ultimoPagoDate = new Date(pagosMensuales[0].fecha.substring(0, 10) + 'T12:00:00');
+                const fechaVencimiento = new Date(ultimoPagoDate);
+                fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1);
+                fechaVencimiento.setDate(fechaVencimiento.getDate() - 1); 
+                
+                return fechaVencimiento;
+            }
+
             const clientesMensuales = clientes.filter(c => c.tipoMembresia === 'mensual');
             const hoy = new Date(new Date().toISOString().split('T')[0] + 'T12:00:00');
             let activos = 0;
             let inactivos = 0;
 
             clientesMensuales.forEach(cliente => {
-                // Se debe llamar a getFechaVencimiento desde el componente principal o pasarlo como prop. 
-                // Aquí lo pasamos al componente, pero la función depende de los "pagos", así que la lógica es mejor en el componente principal.
-                // Como esta función está fuera, la refactorizamos para recibir solo lo necesario y la lógica de vencimiento pasa al componente principal
-                // Para mantenerla simple, la dejaremos en el componente principal y aquí solo calculamos el estado. 
-                // Por ahora, asumimos que getFechaVencimiento se pasa (aunque en el código de arriba no lo necesita, lo dejaremos para la llamada).
-                // Mejor, la función se queda fuera y recibe los datos.
-
-                const pagos = JSON.parse(localStorage.getItem('pagos') || '[]');
-                const getFechaVencimientoLocal = (clienteId) => {
-                    const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
-                        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Más reciente primero
-
-                    if (pagosMensuales.length === 0) return null;
-
-                    const ultimoPagoDate = new Date(pagosMensuales[0].fecha.substring(0, 10) + 'T12:00:00');
-                    const fechaVencimiento = new Date(ultimoPagoDate);
-                    fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1);
-                    fechaVencimiento.setDate(fechaVencimiento.getDate() - 1); 
-                    
-                    return fechaVencimiento;
-                }
-
                 const fechaVencimiento = getFechaVencimientoLocal(cliente.id);
                 if (fechaVencimiento && hoy <= fechaVencimiento) {
                     activos++;
@@ -620,7 +613,7 @@
         };
 
         // ==========================================================
-        // COMPONENTES AUXILIARES FALTANTES (¡CORRECCIÓN!)
+        // COMPONENTES AUXILIARES
         // ==========================================================
         
         // COMPONENTE: Modal genérico
@@ -638,7 +631,7 @@
             </div>
         );
 
-        // COMPONENTE: Botón de Pestaña (Necesita recibir activeTab y setActiveTab como props)
+        // COMPONENTE: Botón de Pestaña
         const TabButton = ({ id, icon: Icon, label, count = 0, activeTab, setActiveTab }) => (
             <button
                 onClick={() => setActiveTab(id)}
@@ -698,7 +691,7 @@
             
             const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().split('T')[0]);
             
-            // ESTADOS de Asistencia
+            // ESTADOS de Asistencia (Fecha de trabajo principal)
             const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
             const [selectedInstructor, setSelectedInstructor] = useState(INSTRUCTORES[0]);
             const [selectedHorario, setSelectedHorario] = useState(HORARIOS[0]);
@@ -707,6 +700,13 @@
             const [editingAttendanceId, setEditingAttendanceId] = useState(null);
             const [editInstructor, setEditInstructor] = useState('');
             const [editHorario, setEditHorario] = useState('');
+            
+            // ESTADOS de Ventas (NUEVOS - Punto 2 y 3)
+            const [searchClientVenta, setSearchClientVenta] = useState('');
+            // Usamos String para consistencia con los valores del select (aunque ya no se usa)
+            const [selectedClientVentaId, setSelectedClientVentaId] = useState(''); 
+            const [searchProductoVenta, setSearchProductoVenta] = useState('');
+            const [carrito, setCarrito] = useState([]); // [{ productId, quantity, price, nombre }]
 
 
             // Cargar datos al iniciar
@@ -998,6 +998,7 @@
                 montoInput.value = '';
             };
 
+            // Lógica de Venta (Obsoleta, mantenida por si acaso)
             const registrarVenta = (productoId, clienteId, cantidad) => {
                 const producto = productos.find(p => p.id === productoId);
                 const selectedDate = new Date(selectedAttendanceDate + 'T12:00:00');
@@ -1022,6 +1023,105 @@
                     alert(`Stock insuficiente. Solo quedan ${producto.stock} de ${producto.nombre}.`);
                 }
             };
+            
+            // NUEVO: Funciones para Carrito (Punto 3)
+            const handleProductChange = (product, quantity) => {
+                const existingItem = carrito.find(item => item.productId === product.id);
+                
+                // Asegurar que la cantidad no exceda el stock real
+                if (quantity > product.stock) {
+                    alert(`No hay suficiente stock. Solo quedan ${product.stock} de ${product.nombre}.`);
+                    return;
+                }
+
+                if (existingItem) {
+                    if (quantity <= 0) {
+                        setCarrito(carrito.filter(item => item.productId !== product.id));
+                    } else {
+                        setCarrito(carrito.map(item =>
+                            item.productId === product.id ? { ...item, quantity: quantity } : item
+                        ));
+                    }
+                } else if (quantity > 0) {
+                    setCarrito([...carrito, { 
+                        productId: product.id, 
+                        nombre: product.nombre, 
+                        price: product.precio, 
+                        quantity: quantity 
+                    }]);
+                }
+            };
+
+            const handleRemoveFromCarrito = (productId) => {
+                setCarrito(carrito.filter(item => item.productId !== productId));
+            };
+
+            const finalizarVenta = () => {
+                if (!selectedClientVentaId) {
+                    alert('Debes seleccionar un cliente para finalizar la venta.');
+                    return;
+                }
+                if (carrito.length === 0) {
+                    alert('El carrito está vacío.');
+                    return;
+                }
+
+                const targetClient = clientes.find(c => c.id === parseInt(selectedClientVentaId));
+                if (!targetClient) {
+                    alert('Cliente no válido.');
+                    return;
+                }
+
+                const targetDate = new Date(selectedAttendanceDate + 'T12:00:00');
+                const combinedDateTimeISO = targetDate.toISOString();
+                const combinedDateTimeFormat = getDisplayDate(selectedAttendanceDate);
+                
+                const newVentas = [];
+                let updatedProductos = [...productos];
+
+                let hasError = false;
+
+                // 1. Procesar cada ítem del carrito
+                const now = Date.now();
+                carrito.forEach((item, index) => {
+                    const productInStock = updatedProductos.find(p => p.id === item.productId);
+                    
+                    if (item.quantity > productInStock.stock) {
+                        alert(`Error de Stock: La cantidad de ${item.nombre} (${item.quantity}) excede el stock disponible (${productInStock.stock}).`);
+                        hasError = true;
+                        return;
+                    }
+
+                    const venta = {
+                        id: now + index, // Usar un ID incremental para el mismo lote
+                        productoId: item.productId,
+                        clienteId: parseInt(selectedClientVentaId),
+                        cantidad: item.quantity,
+                        total: item.price * item.quantity,
+                        fecha: combinedDateTimeISO,
+                        fechaFormato: combinedDateTimeFormat
+                    };
+                    newVentas.push(venta);
+
+                    // 2. Actualizar Stock localmente para el siguiente producto en el carrito
+                    updatedProductos = updatedProductos.map(p => 
+                        p.id === item.productId ? { ...p, stock: p.stock - item.quantity } : p
+                    );
+                });
+
+                if (hasError) return;
+
+                // 3. Persistir cambios
+                setVentas([...newVentas, ...ventas]);
+                setProductos(updatedProductos);
+                
+                // 4. Limpiar
+                setCarrito([]);
+                setSelectedClientVentaId('');
+                setSearchClientVenta('');
+                alert(`Venta de ${newVentas.length} productos a ${targetClient.nombre} finalizada con éxito. Total: S/. ${newVentas.reduce((sum, v) => sum + v.total, 0).toFixed(2)}.`);
+            };
+
 
             const actualizarStock = (productoId, nuevoStock) => {
                 setProductos(productos.map(p => 
@@ -1068,31 +1168,34 @@
                 c.nombre.toLowerCase().includes(searchCliente.toLowerCase())
             );
 
-            // Resumen del dashboard (usa HOY)
-            const hoyISO = new Date().toISOString().split('T')[0];
+            // PUNTO 1: Resumen de KPIs Superiores (usan selectedAttendanceDate)
+            const workingDateISO = selectedAttendanceDate;
             
-            const asistenciasHoy = asistencias.filter(a => 
-                getAttendanceDateString(a.fecha) === hoyISO
+            // Cálculos para los 4 KPI cards superiores
+            const asistenciasWorkingDate = asistencias.filter(a => 
+                getAttendanceDateString(a.fecha) === workingDateISO
             );
 
-            const ventasHoy = ventas.filter(v => 
-                getAttendanceDateString(v.fecha) === hoyISO
+            const ventasWorkingDate = ventas.filter(v => 
+                getAttendanceDateString(v.fecha) === workingDateISO
             );
 
-            const pagosClaseHoy = pagos.filter(p => 
-                getAttendanceDateString(p.fecha) === hoyISO && (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad')
+            const pagosWorkingDate = pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === workingDateISO
             );
-            const pagosMensualidadHoy = pagos.filter(p => 
-                getAttendanceDateString(p.fecha) === hoyISO && p.tipo === 'mensualidad'
-            );
-
-            const totalPagosClaseHoy = pagosClaseHoy.reduce((sum, p) => sum + p.monto, 0);
-            const totalPagosMensualidadHoy = pagosMensualidadHoy.reduce((sum, p) => sum + p.monto, 0);
-            const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
-            const totalPagosHoy = totalPagosClaseHoy + totalPagosMensualidadHoy;
-            const totalIngresos = totalVentasHoy + totalPagosHoy;
             
-            // LÓGICA DE FILTRADO PARA REPORTES POR selectedReportDate
+            // Separar Pagos para el texto descriptivo
+            const pagosClaseWorkingDate = pagosWorkingDate.filter(p => p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad');
+            const pagosMensualidadWorkingDate = pagosWorkingDate.filter(p => p.tipo === 'mensualidad');
+            
+            const totalVentasWorkingDate = ventasWorkingDate.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosClaseWorkingDate = pagosClaseWorkingDate.reduce((sum, p) => sum + p.monto, 0);
+            const totalPagosMensualidadWorkingDate = pagosMensualidadWorkingDate.reduce((sum, p) => sum + p.monto, 0);
+            const totalPagosWorkingDate = totalPagosClaseWorkingDate + totalPagosMensualidadWorkingDate;
+            const totalIngresosWorkingDate = totalVentasWorkingDate + totalPagosWorkingDate;
+
+
+            // LÓGICA DE FILTRADO PARA REPORTES POR selectedReportDate (En la pestaña Dashboard)
             const asistenciasReporte = asistencias.filter(a => 
                 getAttendanceDateString(a.fecha) === selectedReportDate
             );
@@ -1115,7 +1218,7 @@
             const dataIngresosPorFuente = procesarIngresosPorFuente(pagos, ventas);
             
             // KPI 3: Estado de Clientes Mensuales
-            const dataEstadoMensual = procesarEstadoMensual(clientes, getFechaVencimiento);
+            const dataEstadoMensual = procesarEstadoMensual(clientes, pagos);
 
             // KPI 4: Tasa de Renovación
             const kpiRenovacion = calcularTasaRenovacion(clientes, pagos);
@@ -1127,7 +1230,7 @@
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h1 className="text-3xl font-bold text-gray-800 mb-2">💪 Sistema de Gestión Fitness</h1>
-                                    <p className="text-gray-600">Cardio, Baile & Herbalife</p>
+                                    <p className="text-gray-600">Reporte del día: <span className='font-bold text-purple-600'>{getDisplayDate(workingDateISO)}</span></p>
                                 </div>
                                 <div className="flex gap-2 no-print">
                                     <button
@@ -1142,18 +1245,19 @@
                                         className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
                                     >
                                         <Download size={20} />
-                                        PDF Diario
+                                        PDF Diario (Hoy)
                                     </button>
                                 </div>
                             </div>
                         </div>
 
+                        {/* PUNTO 1: KPIs dinámicos por selectedAttendanceDate */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Total Hoy</p>
-                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresos.toFixed(2)}</p>
+                                        <p className="text-gray-600 text-sm">Total Ingreso ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresosWorkingDate.toFixed(2)}</p>
                                     </div>
                                     <BarChart3 size={40} className="text-orange-400" />
                                 </div>
@@ -1161,8 +1265,8 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Asistencias Hoy</p>
-                                        <p className="text-3xl font-bold text-purple-600">{asistenciasHoy.length}</p>
+                                        <p className="text-gray-600 text-sm">Asistencias ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-purple-600">{asistenciasWorkingDate.length}</p>
                                     </div>
                                     <Users size={40} className="text-purple-400" />
                                 </div>
@@ -1170,8 +1274,8 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Pagos Clases/Mensualidad Hoy</p>
-                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</p>
+                                        <p className="text-gray-600 text-sm">Pagos Clases/Mensualidad ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosWorkingDate.toFixed(2)}</p>
                                     </div>
                                     <CreditCard size={40} className="text-blue-400" />
                                 </div>
@@ -1179,8 +1283,8 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Productos Hoy</p>
-                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasHoy.toFixed(2)}</p>
+                                        <p className="text-gray-600 text-sm">Productos ({getDisplayDate(workingDateISO)})</p>
+                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasWorkingDate.toFixed(2)}</p>
                                     </div>
                                     <ShoppingCart size={40} className="text-green-400" />
                                 </div>
@@ -1188,7 +1292,6 @@
                         </div>
 
                         <div className="flex flex-wrap gap-2 mb-6 no-print">
-                            {/* COMPONENTES TAB BUTTON CON PROPS ACTUALIZADOS */}
                             <TabButton id="asistencia" icon={Users} label="Asistencia" activeTab={activeTab} setActiveTab={setActiveTab} />
                             <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" activeTab={activeTab} setActiveTab={setActiveTab} />
                             <TabButton id="ventas" icon={ShoppingCart} label="Ventas" activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -1343,9 +1446,9 @@
                                         })}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias Registradas para el {getDisplayDate(selectedAttendanceDate)} ({asistencias.filter(a => getAttendanceDateString(a.fecha) === selectedAttendanceDate).length})</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias Registradas para el {getDisplayDate(selectedAttendanceDate)} ({asistenciasWorkingDate.length})</h3>
                                     <div className="space-y-2">
-                                        {asistencias.filter(a => getAttendanceDateString(a.fecha) === selectedAttendanceDate)
+                                        {asistenciasWorkingDate
                                             .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
                                             .map(a => {
                                             const cliente = clientes.find(c => c.id === a.clienteId);
@@ -1533,66 +1636,167 @@
 
                             {activeTab === 'ventas' && (
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Ventas de Productos Herbalife</h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Ventas de Productos Herbalife</h2>
                                     
                                     <div className="mb-6 p-4 border rounded-lg bg-blue-50 no-print">
                                         <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Venta Registrada</h3>
-                                        <p className="text-sm text-gray-600 mb-2">Las ventas se registrarán para la fecha seleccionada en la pestaña **Asistencia**.</p>
+                                        <p className="text-sm text-gray-600 mb-2">La venta se registrará con la fecha seleccionada en la pestaña **Asistencia**.</p>
                                         <p className="text-base font-medium text-blue-700">Fecha actual: {getDisplayDate(selectedAttendanceDate)}</p>
                                     </div>
 
-                                    <div className="mb-4 no-print">
-                                        <label className="block text-gray-700 font-medium mb-2">Cliente</label>
-                                        <select
-                                            id="clienteVenta"
-                                            className="w-full px-4 py-2 border rounded-lg"
-                                        >
-                                            <option value="">Seleccionar cliente...</option>
-                                            {clientes.map(c => (
-                                                <option key={c.id} value={c.id}>{c.nombre}</option>
+                                    {/* PUNTO 2: Buscador de Cliente con filtro */}
+                                    <div className="mb-4 p-4 border rounded-lg bg-yellow-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">👥 1. Seleccionar Cliente</h3>
+                                        <div className="relative">
+                                            <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar cliente por nombre o apellido..."
+                                                value={searchClientVenta}
+                                                onChange={(e) => setSearchClientVenta(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-2 border rounded-lg mb-2"
+                                            />
+                                        </div>
+                                        
+                                        {/* Lista de Clientes Filtrados */}
+                                        <div className="max-h-40 overflow-y-auto border rounded-lg p-2 bg-white">
+                                            {clientes.filter(c => 
+                                                c.nombre.toLowerCase().includes(searchClientVenta.toLowerCase())
+                                            ).map(c => (
+                                                <div 
+                                                    key={c.id} 
+                                                    className={`p-2 cursor-pointer rounded-lg mb-1 ${
+                                                        selectedClientVentaId === c.id.toString() 
+                                                            ? 'bg-yellow-200 font-bold' 
+                                                            : 'hover:bg-gray-100'
+                                                    }`}
+                                                    onClick={() => {
+                                                        setSelectedClientVentaId(c.id.toString());
+                                                        setSearchClientVenta(c.nombre); // Opcional: mostrar nombre completo en el buscador
+                                                    }}
+                                                >
+                                                    {c.nombre}
+                                                </div>
                                             ))}
-                                        </select>
+                                            {searchClientVenta && clientes.filter(c => 
+                                                c.nombre.toLowerCase().includes(searchClientVenta.toLowerCase())
+                                            ).length === 0 && (
+                                                <p className="text-sm text-gray-500 p-2">No se encontraron clientes.</p>
+                                            )}
+                                        </div>
+
+                                        {selectedClientVentaId && (
+                                            <p className="mt-3 text-sm font-medium text-green-700">
+                                                Cliente Seleccionado: <span className="font-bold">{clientes.find(c => c.id.toString() === selectedClientVentaId)?.nombre}</span>
+                                            </p>
+                                        )}
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 no-print">
-                                        {productos.map(prod => (
-                                            <div key={prod.id} className="border rounded-lg p-4">
-                                                <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
-                                                <p className="text-green-600 font-bold">S/. {prod.precio.toFixed(2)}</p>
-                                                <p className="text-gray-600 text-sm">Stock: {prod.stock}</p>
-                                                <div className="flex gap-2 mt-2">
-                                                    <input
-                                                        type="number"
-                                                        id={`cant-${prod.id}`}
-                                                        min="1"
-                                                        max={prod.stock}
-                                                        defaultValue="1"
-                                                        className="w-20 px-2 py-1 border rounded"
-                                                    />
-                                                    <button
-                                                        onClick={() => {
-                                                            const clienteId = document.getElementById('clienteVenta').value;
-                                                            const cantidad = parseInt(document.getElementById(`cant-${prod.id}`).value) || 1;
-                                                            if (clienteId && prod.stock >= cantidad) {
-                                                                registrarVenta(prod.id, parseInt(clienteId), cantidad);
-                                                                document.getElementById(`cant-${prod.id}`).value = 1;
-                                                            } else {
-                                                                alert('Selecciona un cliente y verifica el stock');
-                                                            }
-                                                        }}
-                                                        disabled={prod.stock === 0}
-                                                        className="flex-1 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 disabled:bg-gray-300"
-                                                    >
-                                                        Vender
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    {/* PUNTO 3: Buscador de Producto y Carrito de Compras */}
+                                    <div className="mb-6 p-4 border rounded-lg bg-green-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-3">🛒 2. Agregar Productos al Carrito</h3>
+                                        <div className="relative">
+                                            <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Buscar producto..."
+                                                value={searchProductoVenta}
+                                                onChange={(e) => setSearchProductoVenta(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-2 border rounded-lg mb-4"
+                                            />
+                                        </div>
+                                        
+                                        {/* Lista de Productos Filtrados con control de cantidad */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2">
+                                            {productos.filter(p => 
+                                                p.nombre.toLowerCase().includes(searchProductoVenta.toLowerCase())
+                                            ).map(prod => {
+                                                const itemInCarrito = carrito.find(item => item.productId === prod.id);
+                                                const currentQuantity = itemInCarrito ? itemInCarrito.quantity : 0;
+                                                
+                                                return (
+                                                    <div key={prod.id} className={`p-3 rounded-lg border ${
+                                                        currentQuantity > 0 ? 'border-green-500 bg-green-100' : 'border-gray-200 hover:bg-gray-50'
+                                                    }`}>
+                                                        <div className="flex justify-between items-center">
+                                                            <div>
+                                                                <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
+                                                                <p className="text-green-600 font-bold">S/. {prod.precio.toFixed(2)}</p>
+                                                                <p className="text-gray-600 text-sm">Stock: {prod.stock}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max={prod.stock}
+                                                                    value={currentQuantity}
+                                                                    onChange={(e) => handleProductChange(prod, parseInt(e.target.value) || 0)}
+                                                                    className="w-16 px-2 py-1 border rounded text-center"
+                                                                    disabled={prod.stock === 0}
+                                                                />
+                                                                <button
+                                                                    onClick={() => handleProductChange(prod, currentQuantity + 1)}
+                                                                    disabled={prod.stock <= currentQuantity}
+                                                                    className="bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 disabled:bg-gray-300"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Resumen de Carrito y Finalizar Venta */}
+                                    <div className="mb-6 p-4 border rounded-lg bg-purple-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-3">🛍️ 3. Carrito de Venta ({carrito.length} Items)</h3>
+                                        
+                                        <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                                            {carrito.length === 0 ? (
+                                                <p className="text-gray-500">El carrito está vacío.</p>
+                                            ) : (
+                                                carrito.map(item => (
+                                                    <div key={item.productId} className="flex justify-between items-center p-2 bg-white rounded shadow-sm">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-medium">{item.nombre}</span>
+                                                            <span className="text-sm text-gray-600">x{item.quantity}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-red-600">S/. {(item.price * item.quantity).toFixed(2)}</span>
+                                                            <button
+                                                                onClick={() => handleRemoveFromCarrito(item.productId)}
+                                                                className="text-red-500 hover:text-red-700 p-1 rounded"
+                                                                title="Eliminar"
+                                                            >
+                                                                <Trash size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                        
+                                        <div className="flex justify-between items-center border-t pt-3">
+                                            <p className="text-xl font-bold">Total:</p>
+                                            <p className="text-xl font-bold text-purple-700">
+                                                S/. {carrito.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            onClick={finalizarVenta}
+                                            disabled={!selectedClientVentaId || carrito.length === 0}
+                                            className="w-full mt-4 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-300 font-bold"
+                                        >
+                                            Finalizar Venta
+                                        </button>
                                     </div>
 
                                     <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas Registradas para el {getDisplayDate(selectedAttendanceDate)}</h3>
                                     <div className="space-y-2">
-                                        {ventas.filter(v => getAttendanceDateString(v.fecha) === selectedAttendanceDate)
+                                        {ventasWorkingDate
                                             .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
                                             .map(v => {
                                             const cliente = clientes.find(c => c.id === v.clienteId);
@@ -1816,12 +2020,20 @@
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         
                                         <div className="bg-purple-50 p-4 rounded-lg">
-                                            <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy</h3>
-                                            <div className="space-y-2">
-                                                <p>Clases y Mensualidades: <span className="font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</span></p>
-                                                <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasHoy.toFixed(2)}</span></p>
-                                                <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalIngresos.toFixed(2)}</span></p>
-                                            </div>
+                                            <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy ({getAttendanceDateString(new Date().toISOString())})</h3>
+                                            {/* Usamos los datos filtrados por "hoy" para este KPI, no la working date */}
+                                            {(() => {
+                                                const hoyISO = new Date().toISOString().split('T')[0];
+                                                const vHoy = ventas.filter(v => getAttendanceDateString(v.fecha) === hoyISO).reduce((sum, v) => sum + v.total, 0);
+                                                const pHoy = pagos.filter(p => getAttendanceDateString(p.fecha) === hoyISO).reduce((sum, p) => sum + p.monto, 0);
+                                                return (
+                                                    <div className="space-y-2">
+                                                        <p>Clases y Mensualidades: <span className="font-bold text-blue-600">S/. {pHoy.toFixed(2)}</span></p>
+                                                        <p>Productos: <span className="font-bold text-green-600">S/. {vHoy.toFixed(2)}</span></p>
+                                                        <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {(vHoy + pHoy).toFixed(2)}</span></p>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
 
                                         <div className="bg-blue-50 p-4 rounded-lg">
