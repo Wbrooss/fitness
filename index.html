@@ -138,7 +138,6 @@
             const [activeTab, setActiveTab] = useState('asistencia');
             const [clientes, setClientes] = useState([]);
             const [asistencias, setAsistencias] = useState([]);
-            // INICIO: Productos actualizados con la lista del usuario y precios
             const [productos, setProductos] = useState([
                 { id: 1, nombre: 'TÉ', precio: 8, stock: 20 },
                 { id: 2, nombre: 'ALOE', precio: 8, stock: 20 },
@@ -165,13 +164,14 @@
                 { id: 23, nombre: 'RNG', precio: 8, stock: 20 },
                 { id: 24, nombre: 'YOGURT', precio: 5, stock: 20 }
             ]);
-            // FIN: Productos actualizados
-
             const [ventas, setVentas] = useState([]);
             const [pagos, setPagos] = useState([]);
             const [searchCliente, setSearchCliente] = useState('');
             const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
             const [showAddCliente, setShowAddCliente] = useState(false);
+            
+            // NUEVO ESTADO: Fecha seleccionada para el reporte histórico
+            const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().split('T')[0]);
 
             // Cargar datos al iniciar
             useEffect(() => {
@@ -185,34 +185,47 @@
 
                         if (clientesRes) setClientes(JSON.parse(clientesRes.value));
                         if (asistenciasRes) setAsistencias(JSON.parse(asistenciasRes.value));
-                        // Al cargar productos, si existe un valor guardado, lo usa, si no, usa el valor inicial
+                        
+                        const initialProducts = [
+                            { id: 1, nombre: 'TÉ', precio: 8, stock: 20 },
+                            { id: 2, nombre: 'ALOE', precio: 8, stock: 20 },
+                            { id: 3, nombre: 'FIBRA', precio: 8, stock: 20 },
+                            { id: 4, nombre: 'CHUPAPANZA', precio: 21, stock: 20 },
+                            { id: 5, nombre: 'AGUA MINERAL 1L', precio: 3.5, stock: 20 },
+                            { id: 6, nombre: 'AGUA MINERAL 1/2 L', precio: 2, stock: 20 },
+                            { id: 7, nombre: 'BIO', precio: 3.5, stock: 20 },
+                            { id: 8, nombre: 'KERO', precio: 3.5, stock: 20 },
+                            { id: 9, nombre: 'GATORADE', precio: 3, stock: 20 },
+                            { id: 10, nombre: 'OMEGA', precio: 4, stock: 20 },
+                            { id: 11, nombre: 'BEVERAGE', precio: 8, stock: 20 },
+                            { id: 12, nombre: 'PDM', precio: 8, stock: 20 },
+                            { id: 13, nombre: 'BATIDO', precio: 10, stock: 20 },
+                            { id: 14, nombre: 'PROTEÍNA', precio: 12, stock: 20 },
+                            { id: 15, nombre: 'GALLETA', precio: 3, stock: 20 },
+                            { id: 16, nombre: 'DESODORANTE', precio: 1.5, stock: 20 },
+                            { id: 17, nombre: 'P.H', precio: 2, stock: 20 },
+                            { id: 18, nombre: 'T.H', precio: 1, stock: 20 },
+                            { id: 19, nombre: 'HIDRATANTE', precio: 3.5, stock: 20 },
+                            { id: 20, nombre: 'CALCIO', precio: 2, stock: 20 },
+                            { id: 21, nombre: 'MULTIVITAMINICO', precio: 2, stock: 20 },
+                            { id: 22, nombre: 'COLAGENO', precio: 10, stock: 20 },
+                            { id: 23, nombre: 'RNG', precio: 8, stock: 20 },
+                            { id: 24, nombre: 'YOGURT', precio: 5, stock: 20 }
+                        ];
+
                         if (productosRes) {
-                            // Mantiene los IDs, Nombres y Precios del nuevo set inicial, pero actualiza el Stock si ya hay un registro en localStorage.
                             const storedProductos = JSON.parse(productosRes.value);
-                            const updatedProductos = productos.map(newProd => {
-                                const storedProd = storedProductos.find(p => p.nombre === newProd.nombre);
-                                return storedProd ? { ...newProd, stock: storedProd.stock } : newProd;
-                            });
-                            // También añade productos antiguos si no están en la lista actual pero sí en el almacenamiento (para no perder datos de ventas/stock antiguos)
-                            const finalProductos = [...updatedProductos, ...storedProductos.filter(sP => !updatedProductos.some(uP => uP.nombre === sP.nombre))];
-
-                            // Simplificación: Solo usa la nueva lista inicial si no hay datos de productos guardados.
-                            if (storedProductos.length > 0) {
-                                setProductos(storedProductos);
-                            } else {
-                                setProductos(productos); // Usa la lista inicial actualizada
-                            }
-
+                            // Usar la lista guardada si existe, para mantener stocks y productos anteriores.
+                            setProductos(storedProductos.length > 0 ? storedProductos : initialProducts);
                         } else {
-                            setProductos(productos); // Usa la lista inicial actualizada
+                            setProductos(initialProducts); // Usar la lista inicial actualizada
                         }
 
                         if (ventasRes) setVentas(JSON.parse(ventasRes.value));
                         if (pagosRes) setPagos(JSON.parse(pagosRes.value));
                     } catch (error) {
                         console.log('Cargando datos iniciales', error);
-                        // En caso de error, asegura que la nueva lista de productos se use como fallback.
-                        setProductos(productos);
+                        setProductos(productos); 
                     }
                 };
                 loadData();
@@ -228,7 +241,6 @@
             }, [asistencias]);
 
             useEffect(() => {
-                // Guarda siempre la lista de productos, aunque su longitud sea 0 (aunque aquí siempre tendrá la inicial)
                 storage.set('productos', JSON.stringify(productos));
             }, [productos]);
 
@@ -559,6 +571,22 @@
             const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
             const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
             const totalIngresos = totalVentasHoy + totalPagosHoy;
+            
+            // LÓGICA DE FILTRADO PARA REPORTES POR FECHA
+            const asistenciasReporte = asistencias.filter(a => 
+                new Date(a.fecha).toISOString().split('T')[0] === selectedReportDate
+            );
+            const ventasReporte = ventas.filter(v => 
+                new Date(v.fecha).toISOString().split('T')[0] === selectedReportDate
+            );
+            const pagosReporte = pagos.filter(p => 
+                new Date(p.fecha).toISOString().split('T')[0] === selectedReportDate
+            );
+
+            const totalVentasReporte = ventasReporte.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosReporte = pagosReporte.reduce((sum, p) => sum + p.monto, 0);
+            const totalIngresosReporte = totalVentasReporte + totalPagosReporte;
+            // FIN LÓGICA DE FILTRADO
 
             const TabButton = ({ id, icon: Icon, label, count }) => (
                 <button
@@ -603,7 +631,7 @@
                                         className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
                                     >
                                         <Download size={20} />
-                                        PDF
+                                        PDF Diario
                                     </button>
                                 </div>
                             </div>
@@ -964,13 +992,76 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
                                     
+                                    {/* NUEVO SECCIÓN: Reporte por Fecha */}
+                                    <div className="mb-8 p-4 border rounded-lg bg-gray-50">
+                                        <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">🔍 Reporte por Fecha Específica</h3>
+                                        <div className="mb-4 flex items-center gap-4 no-print">
+                                            <label className="font-medium text-gray-700">Seleccionar Fecha:</label>
+                                            <input
+                                                type="date"
+                                                value={selectedReportDate}
+                                                onChange={(e) => setSelectedReportDate(e.target.value)}
+                                                className="px-4 py-2 border rounded-lg w-48"
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                            <div className="bg-purple-100 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600">Total Ingresos ({selectedReportDate})</p>
+                                                <p className="text-2xl font-bold text-purple-700">S/. {totalIngresosReporte.toFixed(2)}</p>
+                                            </div>
+                                            <div className="bg-blue-100 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600">Asistencias</p>
+                                                <p className="text-2xl font-bold text-blue-700">{asistenciasReporte.length}</p>
+                                            </div>
+                                            <div className="bg-green-100 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600">Ventas Productos</p>
+                                                <p className="text-2xl font-bold text-green-700">S/. {totalVentasReporte.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+
+                                        <h4 className="font-bold text-lg mt-6 mb-3">Detalle de Asistencias ({asistenciasReporte.length})</h4>
+                                        <div className="max-h-60 overflow-y-auto space-y-2 border p-3 rounded bg-white">
+                                            {asistenciasReporte.length > 0 ? (
+                                                asistenciasReporte.map(a => {
+                                                    const cliente = clientes.find(c => c.id === a.clienteId);
+                                                    return (
+                                                        <div key={a.id} className="flex justify-between items-center p-2 bg-green-50 rounded shadow-sm">
+                                                            <span className="font-medium">{cliente?.nombre}</span>
+                                                            <span className="text-sm text-green-600 font-bold">S/. {a.montoCobrado.toFixed(2)}</span>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : <p className="text-gray-500">No hay asistencias registradas para esta fecha.</p>}
+                                        </div>
+
+                                        <h4 className="font-bold text-lg mt-6 mb-3">Detalle de Ventas ({ventasReporte.length})</h4>
+                                        <div className="max-h-60 overflow-y-auto space-y-2 border p-3 rounded bg-white">
+                                            {ventasReporte.length > 0 ? (
+                                                ventasReporte.map(v => {
+                                                    const cliente = clientes.find(c => c.id === v.clienteId);
+                                                    const producto = productos.find(p => p.id === v.productoId);
+                                                    return (
+                                                        <div key={v.id} className="flex justify-between items-center p-2 bg-blue-50 rounded shadow-sm">
+                                                            <span className="font-medium">{cliente?.nombre} - {producto?.nombre} x{v.cantidad}</span>
+                                                            <span className="text-sm text-green-600 font-bold">S/. {v.total.toFixed(2)}</span>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : <p className="text-gray-500">No hay ventas registradas para esta fecha.</p>}
+                                        </div>
+                                    </div>
+                                    {/* FIN NUEVO SECCIÓN */}
+
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        
                                         <div className="bg-purple-50 p-4 rounded-lg">
                                             <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy</h3>
                                             <div className="space-y-2">
-                                                <p>Clases: <span className="font-bold text-blue-600">S/. {totalPagosHoy}</span></p>
-                                                <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasHoy}</span></p>
-                                                <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalIngresos}</span></p>
+                                                <p>Clases: <span className="font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</span></p>
+                                                <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasHoy.toFixed(2)}</span></p>
+                                                <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalIngresos.toFixed(2)}</span></p>
                                             </div>
                                         </div>
 
@@ -1021,36 +1112,31 @@
                                             )}
                                         </div>
 
-                                        <div className="bg-yellow-50 p-4 rounded-lg">
-                                            <h3 className="font-bold text-lg mb-3">📅 Asistencia</h3>
-                                            <div className="space-y-2">
-                                                <p>Asistencias hoy: <span className="font-bold">{asistenciasHoy.length}</span></p>
-                                                <p>Total asistencias: <span className="font-bold">{asistencias.length}</span></p>
-                                                <p>Segundas clases hoy: <span className="font-bold text-blue-600">
-                                                    {asistenciasHoy.filter(a => a.esSegundaClaseDelDia).length}
-                                                </span></p>
+                                        <div className="bg-yellow-50 p-4 rounded-lg md:col-span-2">
+                                            <h3 className="font-bold text-lg mb-3">💵 Ingresos Totales (Histórico)</h3>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="space-y-2">
+                                                    <p>Clases (total): <span className="font-bold text-blue-600">
+                                                        S/. {pagos.filter(p => p.tipo === 'clase').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
+                                                    </span></p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p>Mensualidades (total): <span className="font-bold text-purple-600">
+                                                        S/. {pagos.filter(p => p.tipo === 'mensualidad').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
+                                                    </span></p>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <p>Productos (total): <span className="font-bold text-green-600">
+                                                        S/. {ventas.reduce((sum, v) => sum + v.total, 0).toFixed(2)}
+                                                    </span></p>
+                                                </div>
                                             </div>
-                                        </div>
-
-                                        <div className="bg-pink-50 p-4 rounded-lg">
-                                            <h3 className="font-bold text-lg mb-3">💵 Ingresos Totales</h3>
-                                            <div className="space-y-2">
-                                                <p>Clases (total): <span className="font-bold text-blue-600">
-                                                    S/. {pagos.filter(p => p.tipo === 'clase').reduce((sum, p) => sum + p.monto, 0)}
-                                                </span></p>
-                                                <p>Mensualidades (total): <span className="font-bold text-purple-600">
-                                                    S/. {pagos.filter(p => p.tipo === 'mensualidad').reduce((sum, p) => sum + p.monto, 0)}
-                                                </span></p>
-                                                <p>Productos (total): <span className="font-bold text-green-600">
-                                                    S/. {ventas.reduce((sum, v) => sum + v.total, 0)}
-                                                </span></p>
-                                                <p className="text-lg pt-2 border-t font-bold">Total general: 
-                                                    <span className="text-purple-600"> S/. {
-                                                        pagos.reduce((sum, p) => sum + p.monto, 0) + 
-                                                        ventas.reduce((sum, v) => sum + v.total, 0)
-                                                    }</span>
-                                                </p>
-                                            </div>
+                                            <p className="text-xl pt-3 border-t mt-3 font-bold text-purple-700">
+                                                Total general: S/. {(
+                                                    pagos.reduce((sum, p) => sum + p.monto, 0) + 
+                                                    ventas.reduce((sum, v) => sum + v.total, 0)
+                                                ).toFixed(2)}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
