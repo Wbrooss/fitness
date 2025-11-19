@@ -8,6 +8,8 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -17,6 +19,9 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
+        @media print {
+            .no-print { display: none !important; }
+        }
     </style>
 </head>
 <body>
@@ -25,8 +30,8 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Simulación de window.storage usando localStorage
-        window.storage = {
+        // Sistema de almacenamiento mejorado con localStorage
+        const storage = {
             async get(key) {
                 const value = localStorage.getItem(key);
                 return value ? { key, value } : null;
@@ -41,7 +46,7 @@
             }
         };
 
-        // Iconos SVG simples
+        // Iconos SVG
         const Users = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -121,6 +126,14 @@
             </svg>
         );
 
+        const Download = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        );
+
         function FitnessManagementApp() {
             const [activeTab, setActiveTab] = useState('asistencia');
             const [clientes, setClientes] = useState([]);
@@ -138,14 +151,15 @@
             const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
             const [showAddCliente, setShowAddCliente] = useState(false);
 
+            // Cargar datos al iniciar
             useEffect(() => {
                 const loadData = async () => {
                     try {
-                        const clientesRes = await window.storage.get('clientes');
-                        const asistenciasRes = await window.storage.get('asistencias');
-                        const productosRes = await window.storage.get('productos');
-                        const ventasRes = await window.storage.get('ventas');
-                        const pagosRes = await window.storage.get('pagos');
+                        const clientesRes = await storage.get('clientes');
+                        const asistenciasRes = await storage.get('asistencias');
+                        const productosRes = await storage.get('productos');
+                        const ventasRes = await storage.get('ventas');
+                        const pagosRes = await storage.get('pagos');
 
                         if (clientesRes) setClientes(JSON.parse(clientesRes.value));
                         if (asistenciasRes) setAsistencias(JSON.parse(asistenciasRes.value));
@@ -153,39 +167,172 @@
                         if (ventasRes) setVentas(JSON.parse(ventasRes.value));
                         if (pagosRes) setPagos(JSON.parse(pagosRes.value));
                     } catch (error) {
-                        console.log('Primera vez usando la app');
+                        console.log('Cargando datos iniciales');
                     }
                 };
                 loadData();
             }, []);
 
+            // Guardar datos automáticamente
             useEffect(() => {
-                if (clientes.length > 0) {
-                    window.storage.set('clientes', JSON.stringify(clientes));
-                }
+                if (clientes.length > 0) storage.set('clientes', JSON.stringify(clientes));
             }, [clientes]);
 
             useEffect(() => {
-                if (asistencias.length > 0) {
-                    window.storage.set('asistencias', JSON.stringify(asistencias));
-                }
+                if (asistencias.length > 0) storage.set('asistencias', JSON.stringify(asistencias));
             }, [asistencias]);
 
             useEffect(() => {
-                window.storage.set('productos', JSON.stringify(productos));
+                storage.set('productos', JSON.stringify(productos));
             }, [productos]);
 
             useEffect(() => {
-                if (ventas.length > 0) {
-                    window.storage.set('ventas', JSON.stringify(ventas));
-                }
+                if (ventas.length > 0) storage.set('ventas', JSON.stringify(ventas));
             }, [ventas]);
 
             useEffect(() => {
-                if (pagos.length > 0) {
-                    window.storage.set('pagos', JSON.stringify(pagos));
-                }
+                if (pagos.length > 0) storage.set('pagos', JSON.stringify(pagos));
             }, [pagos]);
+
+            // Funciones de exportación
+            const exportarAExcel = () => {
+                const wb = XLSX.utils.book_new();
+
+                // Hoja de Clientes
+                const clientesData = clientes.map(c => ({
+                    Nombre: c.nombre,
+                    Tipo: c.tipoMembresia === 'mensual' ? 'Mensual' : 'Por Clase',
+                    'Fecha Registro': new Date(c.fechaRegistro).toLocaleDateString('es-PE')
+                }));
+                const wsClientes = XLSX.utils.json_to_sheet(clientesData);
+                XLSX.utils.book_append_sheet(wb, wsClientes, "Clientes");
+
+                // Hoja de Asistencias
+                const asistenciasData = asistencias.map(a => {
+                    const cliente = clientes.find(c => c.id === a.clienteId);
+                    return {
+                        Cliente: cliente?.nombre,
+                        Fecha: a.fechaFormato,
+                        'Segunda Clase': a.esSegundaClaseDelDia ? 'Sí' : 'No',
+                        Monto: `S/. ${a.montoCobrado}`
+                    };
+                });
+                const wsAsistencias = XLSX.utils.json_to_sheet(asistenciasData);
+                XLSX.utils.book_append_sheet(wb, wsAsistencias, "Asistencias");
+
+                // Hoja de Ventas
+                const ventasData = ventas.map(v => {
+                    const cliente = clientes.find(c => c.id === v.clienteId);
+                    const producto = productos.find(p => p.id === v.productoId);
+                    return {
+                        Cliente: cliente?.nombre,
+                        Producto: producto?.nombre,
+                        Cantidad: v.cantidad,
+                        Total: `S/. ${v.total}`,
+                        Fecha: v.fechaFormato
+                    };
+                });
+                const wsVentas = XLSX.utils.json_to_sheet(ventasData);
+                XLSX.utils.book_append_sheet(wb, wsVentas, "Ventas");
+
+                // Hoja de Pagos
+                const pagosData = pagos.map(p => {
+                    const cliente = clientes.find(c => c.id === p.clienteId);
+                    return {
+                        Cliente: cliente?.nombre,
+                        Tipo: p.tipo === 'clase' ? 'Clase' : 'Mensualidad',
+                        Descripción: p.descripcion,
+                        Monto: `S/. ${p.monto}`,
+                        Fecha: p.fechaFormato
+                    };
+                });
+                const wsPagos = XLSX.utils.json_to_sheet(pagosData);
+                XLSX.utils.book_append_sheet(wb, wsPagos, "Pagos");
+
+                // Hoja de Inventario
+                const inventarioData = productos.map(p => ({
+                    Producto: p.nombre,
+                    Precio: `S/. ${p.precio}`,
+                    Stock: p.stock
+                }));
+                const wsInventario = XLSX.utils.json_to_sheet(inventarioData);
+                XLSX.utils.book_append_sheet(wb, wsInventario, "Inventario");
+
+                XLSX.writeFile(wb, `Sistema_Fitness_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`);
+            };
+
+            const exportarAPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const hoy = new Date().toLocaleDateString('es-PE');
+                const asistenciasHoy = asistencias.filter(a => 
+                    new Date(a.fecha).toLocaleDateString('es-PE') === hoy
+                );
+                const ventasHoy = ventas.filter(v => 
+                    new Date(v.fecha).toLocaleDateString('es-PE') === hoy
+                );
+                const pagosHoy = pagos.filter(p => 
+                    new Date(p.fecha).toLocaleDateString('es-PE') === hoy
+                );
+                const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
+                const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+
+                // Título
+                doc.setFontSize(18);
+                doc.text('Reporte Diario - Sistema Fitness', 20, 20);
+                
+                doc.setFontSize(12);
+                doc.text(`Fecha: ${hoy}`, 20, 30);
+                
+                // Resumen
+                doc.setFontSize(14);
+                doc.text('Resumen del Día', 20, 45);
+                doc.setFontSize(11);
+                doc.text(`Asistencias: ${asistenciasHoy.length}`, 20, 55);
+                doc.text(`Ingresos por clases: S/. ${totalPagosHoy}`, 20, 62);
+                doc.text(`Ventas de productos: S/. ${totalVentasHoy}`, 20, 69);
+                doc.text(`Total ingresos: S/. ${totalPagosHoy + totalVentasHoy}`, 20, 76);
+
+                // Asistencias
+                let y = 90;
+                doc.setFontSize(14);
+                doc.text('Asistencias del Día', 20, y);
+                y += 7;
+                doc.setFontSize(10);
+                asistenciasHoy.forEach(a => {
+                    const cliente = clientes.find(c => c.id === a.clienteId);
+                    if (y > 270) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                    doc.text(`${cliente?.nombre} - S/. ${a.montoCobrado}`, 20, y);
+                    y += 6;
+                });
+
+                // Ventas
+                y += 10;
+                if (y > 250) {
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.setFontSize(14);
+                doc.text('Ventas del Día', 20, y);
+                y += 7;
+                doc.setFontSize(10);
+                ventasHoy.forEach(v => {
+                    const cliente = clientes.find(c => c.id === v.clienteId);
+                    const producto = productos.find(p => p.id === v.productoId);
+                    if (y > 270) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                    doc.text(`${cliente?.nombre} - ${producto?.nombre} x${v.cantidad} = S/. ${v.total}`, 20, y);
+                    y += 6;
+                });
+
+                doc.save(`Reporte_${hoy.replace(/\//g, '-')}.pdf`);
+            };
 
             const agregarCliente = () => {
                 if (nuevoCliente.nombre.trim()) {
@@ -209,7 +356,6 @@
                     a.clienteId === clienteId && 
                     new Date(a.fecha).toLocaleDateString('es-PE') === hoy
                 );
-                
                 return asistenciasHoyCliente.length > 0 ? 6 : 9;
             };
 
@@ -393,38 +539,31 @@
                 <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
                     <div className="max-w-6xl mx-auto">
                         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                            <h1 className="text-3xl font-bold text-gray-800 mb-2">💪 Sistema de Gestión Fitness</h1>
-                            <p className="text-gray-600">Cardio, Baile & Herbalife</p>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-800 mb-2">💪 Sistema de Gestión Fitness</h1>
+                                    <p className="text-gray-600">Cardio, Baile & Herbalife</p>
+                                </div>
+                                <div className="flex gap-2 no-print">
+                                    <button
+                                        onClick={exportarAExcel}
+                                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                                    >
+                                        <Download size={20} />
+                                        Excel
+                                    </button>
+                                    <button
+                                        onClick={exportarAPDF}
+                                        className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                                    >
+                                        <Download size={20} />
+                                        PDF
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                            <div className="bg-white rounded-xl shadow p-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-gray-600 text-sm">Asistencias Hoy</p>
-                                        <p className="text-3xl font-bold text-purple-600">{asistenciasHoy.length}</p>
-                                    </div>
-                                    <Users size={40} className="text-purple-400" />
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-xl shadow p-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-gray-600 text-sm">Clases Hoy</p>
-                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy}</p>
-                                    </div>
-                                    <CreditCard size={40} className="text-blue-400" />
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-xl shadow p-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-gray-600 text-sm">Productos Hoy</p>
-                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasHoy}</p>
-                                    </div>
-                                    <ShoppingCart size={40} className="text-green-400" />
-                                </div>
-                            </div>
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -436,7 +575,7 @@
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 mb-6">
+                        <div className="flex flex-wrap gap-2 mb-6 no-print">
                             <TabButton id="asistencia" icon={Users} label="Asistencia" />
                             <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" />
                             <TabButton id="ventas" icon={ShoppingCart} label="Ventas" />
@@ -451,7 +590,7 @@
                                         <h2 className="text-2xl font-bold text-gray-800">Registrar Asistencia</h2>
                                         <button
                                             onClick={() => setShowAddCliente(true)}
-                                            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+                                            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 no-print"
                                         >
                                             <Plus size={20} />
                                             Nuevo Cliente
@@ -459,7 +598,7 @@
                                     </div>
 
                                     {showAddCliente && (
-                                        <div className="bg-purple-50 p-4 rounded-lg mb-4">
+                                        <div className="bg-purple-50 p-4 rounded-lg mb-4 no-print">
                                             <div className="space-y-3">
                                                 <input
                                                     type="text"
@@ -494,7 +633,7 @@
                                         </div>
                                     )}
 
-                                    <div className="mb-4">
+                                    <div className="mb-4 no-print">
                                         <div className="relative">
                                             <Search size={20} className="absolute left-3 top-3 text-gray-400" />
                                             <input
@@ -507,7 +646,7 @@
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 no-print">
                                         {clientesFiltrados.map(cliente => {
                                             const precio = cliente.tipoMembresia === 'mensual' 
                                                 ? (asistencias.filter(a => a.clienteId === cliente.id && new Date(a.fecha).toLocaleDateString('es-PE') === hoy).length > 0 ? 6 : 0)
@@ -591,7 +730,7 @@
                                                             </p>
                                                         </div>
                                                         {!yaPago && (
-                                                            <div className="flex gap-2 items-center">
+                                                            <div className="flex gap-2 items-center no-print">
                                                                 <input
                                                                     type="number"
                                                                     id={`monto-mensualidad-${cliente.id}`}
@@ -637,7 +776,7 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Ventas de Productos Herbalife</h2>
                                     
-                                    <div className="mb-4">
+                                    <div className="mb-4 no-print">
                                         <label className="block text-gray-700 font-medium mb-2">Cliente</label>
                                         <select
                                             id="clienteVenta"
@@ -650,7 +789,7 @@
                                         </select>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 no-print">
                                         {productos.map(prod => (
                                             <div key={prod.id} className="border rounded-lg p-4">
                                                 <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
@@ -731,7 +870,7 @@
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex gap-2 items-center">
+                                                <div className="flex gap-2 items-center no-print">
                                                     <label className="text-gray-700 font-medium">Stock:</label>
                                                     <input
                                                         type="number"
@@ -854,3 +993,30 @@
     </script>
 </body>
 </html>
+                                        <p className="text-gray-600 text-sm">Asistencias Hoy</p>
+                                        <p className="text-3xl font-bold text-purple-600">{asistenciasHoy.length}</p>
+                                    </div>
+                                    <Users size={40} className="text-purple-400" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Clases Hoy</p>
+                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy}</p>
+                                    </div>
+                                    <CreditCard size={40} className="text-blue-400" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Productos Hoy</p>
+                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasHoy}</p>
+                                    </div>
+                                    <ShoppingCart size={40} className="text-green-400" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
