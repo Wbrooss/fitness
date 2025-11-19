@@ -46,7 +46,7 @@
             }
         };
 
-        // Iconos SVG
+        // Iconos SVG (mantenidos)
         const Users = ({ size = 24, className = "" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -170,8 +170,12 @@
             const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
             const [showAddCliente, setShowAddCliente] = useState(false);
             
-            // NUEVO ESTADO: Fecha seleccionada para el reporte histórico
+            // ESTADO para seleccionar fecha para VER reportes
             const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().split('T')[0]);
+            
+            // NUEVO ESTADO: Fecha seleccionada para REGISTRAR asistencia/ventas
+            const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+
 
             // Cargar datos al iniciar
             useEffect(() => {
@@ -252,7 +256,10 @@
                 if (pagos.length > 0) storage.set('pagos', JSON.stringify(pagos));
             }, [pagos]);
 
-            // Funciones de exportación
+            // Funciones de utilidad para fechas
+            const getAttendanceDateString = (date) => new Date(date).toISOString().split('T')[0];
+
+            // Funciones de exportación (mantenidas)
             const exportarAExcel = () => {
                 const wb = XLSX.utils.book_new();
 
@@ -408,48 +415,61 @@
                 }
             };
 
+            // MODIFICADO: Usa la fecha seleccionada para el cálculo
             const calcularPrecioClase = (clienteId) => {
-                const hoy = new Date().toLocaleDateString('es-PE');
-                const asistenciasHoyCliente = asistencias.filter(a => 
+                const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
+                const asistenciasEnFechaCliente = asistencias.filter(a => 
                     a.clienteId === clienteId && 
-                    new Date(a.fecha).toLocaleDateString('es-PE') === hoy
+                    getAttendanceDateString(a.fecha) === attendanceDateString
                 );
-                return asistenciasHoyCliente.length > 0 ? 6 : 9;
+                return asistenciasEnFechaCliente.length > 0 ? 6 : 9;
             };
 
+            // MODIFICADO: Usa la fecha seleccionada para el registro
             const registrarAsistencia = (clienteId) => {
                 const cliente = clientes.find(c => c.id === clienteId);
-                const hoy = new Date().toLocaleDateString('es-PE');
-                const asistenciasHoyCliente = asistencias.filter(a => 
+                
+                const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
+                
+                // 1. Determinar si es la segunda clase en la fecha seleccionada
+                const asistenciasEnFechaCliente = asistencias.filter(a => 
                     a.clienteId === clienteId && 
-                    new Date(a.fecha).toLocaleDateString('es-PE') === hoy
+                    getAttendanceDateString(a.fecha) === attendanceDateString
                 );
 
                 let montoCobrado = 0;
                 let requierePago = false;
 
                 if (cliente.tipoMembresia === 'mensual') {
-                    if (asistenciasHoyCliente.length > 0) {
+                    if (asistenciasEnFechaCliente.length > 0) {
                         montoCobrado = 6;
                         requierePago = true;
                     }
                 } else {
-                    montoCobrado = asistenciasHoyCliente.length > 0 ? 6 : 9;
+                    montoCobrado = asistenciasEnFechaCliente.length > 0 ? 6 : 9;
                     requierePago = true;
                 }
+
+                // 2. Crear un objeto Date usando la fecha seleccionada y la hora actual de registro
+                const selectedDate = new Date(attendanceDateString);
+                const now = new Date();
+                const combinedDateTime = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+                
+                const combinedDateTimeISO = combinedDateTime.toISOString();
+                const combinedDateTimeFormat = combinedDateTime.toLocaleString('es-PE', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
 
                 const asistencia = {
                     id: Date.now(),
                     clienteId,
-                    fecha: new Date().toISOString(),
-                    fechaFormato: new Date().toLocaleString('es-PE', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
-                    esSegundaClaseDelDia: asistenciasHoyCliente.length > 0,
+                    fecha: combinedDateTimeISO, // Fecha histórica + Hora actual
+                    fechaFormato: combinedDateTimeFormat,
+                    esSegundaClaseDelDia: asistenciasEnFechaCliente.length > 0,
                     montoCobrado: montoCobrado
                 };
 
@@ -461,15 +481,16 @@
                         clienteId,
                         tipo: 'clase',
                         monto: montoCobrado,
-                        fecha: new Date().toISOString(),
-                        fechaFormato: asistencia.fechaFormato,
-                        descripcion: asistenciasHoyCliente.length > 0 ? 'Segunda clase del día' : 'Clase individual'
+                        fecha: combinedDateTimeISO,
+                        fechaFormato: combinedDateTimeFormat,
+                        descripcion: asistenciasEnFechaCliente.length > 0 ? 'Segunda clase del día' : 'Clase individual'
                     };
                     setPagos([pago, ...pagos]);
                 }
             };
 
             const pagarMensualidad = (clienteId) => {
+                // ... (mantenido) ...
                 const mesActual = new Date().getMonth();
                 const añoActual = new Date().getFullYear();
                 
@@ -520,8 +541,24 @@
                 montoInput.value = '';
             };
 
+            // MODIFICADO: Usa la fecha seleccionada para el registro
             const registrarVenta = (productoId, clienteId, cantidad) => {
                 const producto = productos.find(p => p.id === productoId);
+
+                // Crear un objeto Date usando la fecha seleccionada y la hora actual de registro
+                const selectedDate = new Date(selectedAttendanceDate);
+                const now = new Date();
+                const combinedDateTime = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+                
+                const combinedDateTimeISO = combinedDateTime.toISOString();
+                const combinedDateTimeFormat = combinedDateTime.toLocaleString('es-PE', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
                 if (producto.stock >= cantidad) {
                     const venta = {
                         id: Date.now(),
@@ -529,19 +566,15 @@
                         clienteId,
                         cantidad,
                         total: producto.precio * cantidad,
-                        fecha: new Date().toISOString(),
-                        fechaFormato: new Date().toLocaleString('es-PE', { 
-                            day: '2-digit', 
-                            month: '2-digit', 
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })
+                        fecha: combinedDateTimeISO,
+                        fechaFormato: combinedDateTimeFormat
                     };
                     setVentas([venta, ...ventas]);
                     setProductos(productos.map(p => 
                         p.id === productoId ? { ...p, stock: p.stock - cantidad } : p
                     ));
+                } else {
+                    alert(`Stock insuficiente. Solo quedan ${producto.stock} de ${producto.nombre}.`);
                 }
             };
 
@@ -555,6 +588,7 @@
                 c.nombre.toLowerCase().includes(searchCliente.toLowerCase())
             );
 
+            // Resumen del dashboard (usa HOY)
             const hoy = new Date().toLocaleDateString('es-PE');
             const asistenciasHoy = asistencias.filter(a => 
                 new Date(a.fecha).toLocaleDateString('es-PE') === hoy
@@ -572,15 +606,15 @@
             const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
             const totalIngresos = totalVentasHoy + totalPagosHoy;
             
-            // LÓGICA DE FILTRADO PARA REPORTES POR FECHA
+            // LÓGICA DE FILTRADO PARA REPORTES POR selectedReportDate (Mantenido)
             const asistenciasReporte = asistencias.filter(a => 
-                new Date(a.fecha).toISOString().split('T')[0] === selectedReportDate
+                getAttendanceDateString(a.fecha) === selectedReportDate
             );
             const ventasReporte = ventas.filter(v => 
-                new Date(v.fecha).toISOString().split('T')[0] === selectedReportDate
+                getAttendanceDateString(v.fecha) === selectedReportDate
             );
             const pagosReporte = pagos.filter(p => 
-                new Date(p.fecha).toISOString().split('T')[0] === selectedReportDate
+                getAttendanceDateString(p.fecha) === selectedReportDate
             );
 
             const totalVentasReporte = ventasReporte.reduce((sum, v) => sum + v.total, 0);
@@ -642,7 +676,7 @@
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-gray-600 text-sm">Total Hoy</p>
-                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresos}</p>
+                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresos.toFixed(2)}</p>
                                     </div>
                                     <BarChart3 size={40} className="text-orange-400" />
                                 </div>
@@ -660,7 +694,7 @@
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-gray-600 text-sm">Clases Hoy</p>
-                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy}</p>
+                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</p>
                                     </div>
                                     <CreditCard size={40} className="text-blue-400" />
                                 </div>
@@ -669,7 +703,7 @@
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-gray-600 text-sm">Productos Hoy</p>
-                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasHoy}</p>
+                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasHoy.toFixed(2)}</p>
                                     </div>
                                     <ShoppingCart size={40} className="text-green-400" />
                                 </div>
@@ -734,6 +768,20 @@
                                         </div>
                                     )}
 
+                                    {/* NUEVO: Selector de fecha para el registro */}
+                                    <div className="mb-4 p-4 border rounded-lg bg-purple-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Asistencia/Venta</h3>
+                                        <p className="text-sm text-gray-600 mb-2">Selecciona la fecha para la cual deseas registrar la asistencia:</p>
+                                        <input
+                                            type="date"
+                                            value={selectedAttendanceDate}
+                                            onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                                            className="px-4 py-2 border rounded-lg w-full md:w-auto"
+                                            max={new Date().toISOString().split('T')[0]} // No permitir fechas futuras
+                                        />
+                                        <p className="text-xs text-gray-500 mt-2">Registrando para: <span className="font-medium text-purple-700">{new Date(selectedAttendanceDate).toLocaleDateString('es-PE')}</span></p>
+                                    </div>
+
                                     <div className="mb-4 no-print">
                                         <div className="relative">
                                             <Search size={20} className="absolute left-3 top-3 text-gray-400" />
@@ -749,8 +797,9 @@
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 no-print">
                                         {clientesFiltrados.map(cliente => {
+                                            // El precio se calcula para la fecha seleccionada
                                             const precio = cliente.tipoMembresia === 'mensual' 
-                                                ? (asistencias.filter(a => a.clienteId === cliente.id && new Date(a.fecha).toLocaleDateString('es-PE') === hoy).length > 0 ? 6 : 0)
+                                                ? (asistencias.filter(a => a.clienteId === cliente.id && getAttendanceDateString(a.fecha) === selectedAttendanceDate).length > 0 ? 6 : 0)
                                                 : calcularPrecioClase(cliente.id);
                                             
                                             return (
@@ -770,8 +819,8 @@
                                                             onClick={() => registrarAsistencia(cliente.id)}
                                                             className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1"
                                                         >
-                                                            ✓ Presente
-                                                            {precio > 0 && <span className="text-xs">S/. {precio}</span>}
+                                                            ✓ Registrar
+                                                            {precio > 0 && <span className="text-xs">S/. {precio.toFixed(2)}</span>}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -779,9 +828,11 @@
                                         })}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias de Hoy ({asistenciasHoy.length})</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias Registradas para el {new Date(selectedAttendanceDate).toLocaleDateString('es-PE')} ({asistencias.filter(a => getAttendanceDateString(a.fecha) === selectedAttendanceDate).length})</h3>
                                     <div className="space-y-2">
-                                        {asistenciasHoy.map(a => {
+                                        {asistencias.filter(a => getAttendanceDateString(a.fecha) === selectedAttendanceDate)
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) // Mostrar más reciente primero
+                                            .map(a => {
                                             const cliente = clientes.find(c => c.id === a.clienteId);
                                             return (
                                                 <div key={a.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
@@ -793,7 +844,7 @@
                                                     </div>
                                                     <div className="text-right">
                                                         {a.montoCobrado > 0 && (
-                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado}</span>
+                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado.toFixed(2)}</span>
                                                         )}
                                                         <span className="text-gray-600 text-xs">{a.fechaFormato}</span>
                                                     </div>
@@ -852,7 +903,7 @@
                                         })}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos (Mensualidades)</h3>
                                     <div className="space-y-2">
                                         {pagos.filter(p => p.tipo === 'mensualidad').slice(0, 10).map(p => {
                                             const cliente = clientes.find(c => c.id === p.clienteId);
@@ -863,7 +914,7 @@
                                                         <p className="text-sm text-gray-600">{p.descripcion}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-green-600">S/. {p.monto}</p>
+                                                        <p className="font-bold text-green-600">S/. {p.monto.toFixed(2)}</p>
                                                         <p className="text-xs text-gray-500">{p.fechaFormato}</p>
                                                     </div>
                                                 </div>
@@ -877,6 +928,13 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Ventas de Productos Herbalife</h2>
                                     
+                                    {/* Muestra la fecha de registro actual, la cual es compartida con la pestaña Asistencia */}
+                                    <div className="mb-6 p-4 border rounded-lg bg-blue-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Venta Registrada</h3>
+                                        <p className="text-sm text-gray-600 mb-2">Las ventas se registrarán para la fecha seleccionada en la pestaña **Asistencia**.</p>
+                                        <p className="text-base font-medium text-blue-700">Fecha actual: {new Date(selectedAttendanceDate).toLocaleDateString('es-PE')}</p>
+                                    </div>
+
                                     <div className="mb-4 no-print">
                                         <label className="block text-gray-700 font-medium mb-2">Cliente</label>
                                         <select
@@ -894,7 +952,7 @@
                                         {productos.map(prod => (
                                             <div key={prod.id} className="border rounded-lg p-4">
                                                 <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
-                                                <p className="text-green-600 font-bold">S/. {prod.precio}</p>
+                                                <p className="text-green-600 font-bold">S/. {prod.precio.toFixed(2)}</p>
                                                 <p className="text-gray-600 text-sm">Stock: {prod.stock}</p>
                                                 <div className="flex gap-2 mt-2">
                                                     <input
@@ -926,9 +984,11 @@
                                         ))}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas de Hoy</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas Registradas para el {new Date(selectedAttendanceDate).toLocaleDateString('es-PE')}</h3>
                                     <div className="space-y-2">
-                                        {ventasHoy.map(v => {
+                                        {ventas.filter(v => getAttendanceDateString(v.fecha) === selectedAttendanceDate)
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) // Mostrar más reciente primero
+                                            .map(v => {
                                             const cliente = clientes.find(c => c.id === v.clienteId);
                                             const producto = productos.find(p => p.id === v.productoId);
                                             return (
@@ -938,7 +998,7 @@
                                                         <p className="text-sm text-gray-600">{producto?.nombre} x{v.cantidad}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-green-600">S/. {v.total}</p>
+                                                        <p className="font-bold text-green-600">S/. {v.total.toFixed(2)}</p>
                                                         <p className="text-xs text-gray-500">{v.fechaFormato}</p>
                                                     </div>
                                                 </div>
@@ -962,7 +1022,7 @@
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
                                                         <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
-                                                        <p className="text-gray-600">S/. {prod.precio}</p>
+                                                        <p className="text-gray-600">S/. {prod.precio.toFixed(2)}</p>
                                                     </div>
                                                     {prod.stock < 10 && (
                                                         <div className="flex items-center gap-1 text-orange-600">
@@ -992,7 +1052,7 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
                                     
-                                    {/* NUEVO SECCIÓN: Reporte por Fecha */}
+                                    {/* SECCIÓN: Reporte por Fecha (Mantenido) */}
                                     <div className="mb-8 p-4 border rounded-lg bg-gray-50">
                                         <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">🔍 Reporte por Fecha Específica</h3>
                                         <div className="mb-4 flex items-center gap-4 no-print">
@@ -1051,7 +1111,7 @@
                                             ) : <p className="text-gray-500">No hay ventas registradas para esta fecha.</p>}
                                         </div>
                                     </div>
-                                    {/* FIN NUEVO SECCIÓN */}
+                                    {/* FIN SECCIÓN */}
 
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
