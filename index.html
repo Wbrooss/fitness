@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión Fitness</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Simulación de window.storage usando localStorage
+        window.storage = {
+            async get(key) {
+                const value = localStorage.getItem(key);
+                return value ? { key, value } : null;
+            },
+            async set(key, value) {
+                localStorage.setItem(key, value);
+                return { key, value };
+            },
+            async delete(key) {
+                localStorage.removeItem(key);
+                return { key, deleted: true };
+            }
+        };
+
+        // Iconos SVG simples
+        const Users = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        );
+
+        const ShoppingCart = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+        );
+
+        const Package = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+        );
+
+        const BarChart3 = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M3 3v18h18"></path>
+                <path d="M18 17V9"></path>
+                <path d="M13 17V5"></path>
+                <path d="M8 17v-3"></path>
+            </svg>
+        );
+
+        const Plus = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        );
+
+        const Search = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+            </svg>
+        );
+
+        const X = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        );
+
+        const AlertCircle = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        );
+
+        const CreditCard = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+            </svg>
+        );
+
+        const Calendar = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+        );
+
+        function FitnessManagementApp() {
+            const [activeTab, setActiveTab] = useState('asistencia');
+            const [clientes, setClientes] = useState([]);
+            const [asistencias, setAsistencias] = useState([]);
+            const [productos, setProductos] = useState([
+                { id: 1, nombre: 'Batido Fórmula 1 - Vainilla', precio: 450, stock: 15 },
+                { id: 2, nombre: 'Batido Fórmula 1 - Chocolate', precio: 450, stock: 12 },
+                { id: 3, nombre: 'Té Concentrado', precio: 380, stock: 8 },
+                { id: 4, nombre: 'Aloe Vera', precio: 320, stock: 10 },
+                { id: 5, nombre: 'Proteína en Polvo', precio: 520, stock: 6 }
+            ]);
+            const [ventas, setVentas] = useState([]);
+            const [pagos, setPagos] = useState([]);
+            const [searchCliente, setSearchCliente] = useState('');
+            const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
+            const [showAddCliente, setShowAddCliente] = useState(false);
+
+            useEffect(() => {
+                const loadData = async () => {
+                    try {
+                        const clientesRes = await window.storage.get('clientes');
+                        const asistenciasRes = await window.storage.get('asistencias');
+                        const productosRes = await window.storage.get('productos');
+                        const ventasRes = await window.storage.get('ventas');
+                        const pagosRes = await window.storage.get('pagos');
+
+                        if (clientesRes) setClientes(JSON.parse(clientesRes.value));
+                        if (asistenciasRes) setAsistencias(JSON.parse(asistenciasRes.value));
+                        if (productosRes) setProductos(JSON.parse(productosRes.value));
+                        if (ventasRes) setVentas(JSON.parse(ventasRes.value));
+                        if (pagosRes) setPagos(JSON.parse(pagosRes.value));
+                    } catch (error) {
+                        console.log('Primera vez usando la app');
+                    }
+                };
+                loadData();
+            }, []);
+
+            useEffect(() => {
+                if (clientes.length > 0) {
+                    window.storage.set('clientes', JSON.stringify(clientes));
+                }
+            }, [clientes]);
+
+            useEffect(() => {
+                if (asistencias.length > 0) {
+                    window.storage.set('asistencias', JSON.stringify(asistencias));
+                }
+            }, [asistencias]);
+
+            useEffect(() => {
+                window.storage.set('productos', JSON.stringify(productos));
+            }, [productos]);
+
+            useEffect(() => {
+                if (ventas.length > 0) {
+                    window.storage.set('ventas', JSON.stringify(ventas));
+                }
+            }, [ventas]);
+
+            useEffect(() => {
+                if (pagos.length > 0) {
+                    window.storage.set('pagos', JSON.stringify(pagos));
+                }
+            }, [pagos]);
+
+            const agregarCliente = () => {
+                if (nuevoCliente.nombre.trim()) {
+                    const cliente = {
+                        id: Date.now(),
+                        nombre: nuevoCliente.nombre.trim(),
+                        tipoMembresia: nuevoCliente.tipoMembresia,
+                        fechaRegistro: new Date().toISOString(),
+                        mensualidadActiva: false,
+                        mesActual: null
+                    };
+                    setClientes([...clientes, cliente]);
+                    setNuevoCliente({ nombre: '', tipoMembresia: 'por_clase' });
+                    setShowAddCliente(false);
+                }
+            };
+
+            const calcularPrecioClase = (clienteId) => {
+                const hoy = new Date().toLocaleDateString('es-PE');
+                const asistenciasHoyCliente = asistencias.filter(a => 
+                    a.clienteId === clienteId && 
+                    new Date(a.fecha).toLocaleDateString('es-PE') === hoy
+                );
+                
+                return asistenciasHoyCliente.length > 0 ? 6 : 9;
+            };
+
+            const registrarAsistencia = (clienteId) => {
+                const cliente = clientes.find(c => c.id === clienteId);
+                const hoy = new Date().toLocaleDateString('es-PE');
+                const asistenciasHoyCliente = asistencias.filter(a => 
+                    a.clienteId === clienteId && 
+                    new Date(a.fecha).toLocaleDateString('es-PE') === hoy
+                );
+
+                let montoCobrado = 0;
+                let requierePago = false;
+
+                if (cliente.tipoMembresia === 'mensual') {
+                    if (asistenciasHoyCliente.length > 0) {
+                        montoCobrado = 6;
+                        requierePago = true;
+                    }
+                } else {
+                    montoCobrado = asistenciasHoyCliente.length > 0 ? 6 : 9;
+                    requierePago = true;
+                }
+
+                const asistencia = {
+                    id: Date.now(),
+                    clienteId,
+                    fecha: new Date().toISOString(),
+                    fechaFormato: new Date().toLocaleString('es-PE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    esSegundaClaseDelDia: asistenciasHoyCliente.length > 0,
+                    montoCobrado: montoCobrado
+                };
+
+                setAsistencias([asistencia, ...asistencias]);
+
+                if (requierePago) {
+                    const pago = {
+                        id: Date.now() + 1,
+                        clienteId,
+                        tipo: 'clase',
+                        monto: montoCobrado,
+                        fecha: new Date().toISOString(),
+                        fechaFormato: asistencia.fechaFormato,
+                        descripcion: asistenciasHoyCliente.length > 0 ? 'Segunda clase del día' : 'Clase individual'
+                    };
+                    setPagos([pago, ...pagos]);
+                }
+            };
+
+            const pagarMensualidad = (clienteId) => {
+                const mesActual = new Date().getMonth();
+                const añoActual = new Date().getFullYear();
+                
+                const yaPagoEsteMes = pagos.some(p => 
+                    p.clienteId === clienteId && 
+                    p.tipo === 'mensualidad' &&
+                    new Date(p.fecha).getMonth() === mesActual &&
+                    new Date(p.fecha).getFullYear() === añoActual
+                );
+
+                if (yaPagoEsteMes) {
+                    alert('Este cliente ya pagó la mensualidad de este mes');
+                    return;
+                }
+
+                const montoInput = document.getElementById(`monto-mensualidad-${clienteId}`);
+                const monto = parseFloat(montoInput.value);
+                
+                if (!monto || monto <= 0) {
+                    alert('Ingresa un monto válido');
+                    return;
+                }
+
+                const pago = {
+                    id: Date.now(),
+                    clienteId,
+                    tipo: 'mensualidad',
+                    monto: monto,
+                    fecha: new Date().toISOString(),
+                    fechaFormato: new Date().toLocaleString('es-PE', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }),
+                    descripcion: `Mensualidad ${new Date().toLocaleDateString('es-PE', { month: 'long', year: 'numeric' })}`
+                };
+
+                setPagos([pago, ...pagos]);
+                
+                setClientes(clientes.map(c => 
+                    c.id === clienteId 
+                        ? { ...c, mensualidadActiva: true, mesActual: `${mesActual}-${añoActual}` }
+                        : c
+                ));
+
+                montoInput.value = '';
+            };
+
+            const registrarVenta = (productoId, clienteId, cantidad) => {
+                const producto = productos.find(p => p.id === productoId);
+                if (producto.stock >= cantidad) {
+                    const venta = {
+                        id: Date.now(),
+                        productoId,
+                        clienteId,
+                        cantidad,
+                        total: producto.precio * cantidad,
+                        fecha: new Date().toISOString(),
+                        fechaFormato: new Date().toLocaleString('es-PE', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })
+                    };
+                    setVentas([venta, ...ventas]);
+                    setProductos(productos.map(p => 
+                        p.id === productoId ? { ...p, stock: p.stock - cantidad } : p
+                    ));
+                }
+            };
+
+            const actualizarStock = (productoId, nuevoStock) => {
+                setProductos(productos.map(p => 
+                    p.id === productoId ? { ...p, stock: parseInt(nuevoStock) || 0 } : p
+                ));
+            };
+
+            const clientesFiltrados = clientes.filter(c => 
+                c.nombre.toLowerCase().includes(searchCliente.toLowerCase())
+            );
+
+            const hoy = new Date().toLocaleDateString('es-PE');
+            const asistenciasHoy = asistencias.filter(a => 
+                new Date(a.fecha).toLocaleDateString('es-PE') === hoy
+            );
+
+            const ventasHoy = ventas.filter(v => 
+                new Date(v.fecha).toLocaleDateString('es-PE') === hoy
+            );
+
+            const pagosHoy = pagos.filter(p => 
+                new Date(p.fecha).toLocaleDateString('es-PE') === hoy
+            );
+
+            const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
+            const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+            const totalIngresos = totalVentasHoy + totalPagosHoy;
+
+            const TabButton = ({ id, icon: Icon, label, count }) => (
+                <button
+                    onClick={() => setActiveTab(id)}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${
+                        activeTab === id 
+                            ? 'bg-purple-600 text-white shadow-lg' 
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                    <Icon size={20} />
+                    <span className="font-medium">{label}</span>
+                    {count !== undefined && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            activeTab === id ? 'bg-purple-500' : 'bg-gray-200'
+                        }`}>
+                            {count}
+                        </span>
+                    )}
+                </button>
+            );
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <h1 className="text-3xl font-bold text-gray-800 mb-2">💪 Sistema de Gestión Fitness</h1>
+                            <p className="text-gray-600">Cardio, Baile & Herbalife</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Asistencias Hoy</p>
+                                        <p className="text-3xl font-bold text-purple-600">{asistenciasHoy.length}</p>
+                                    </div>
+                                    <Users size={40} className="text-purple-400" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Clases Hoy</p>
+                                        <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy}</p>
+                                    </div>
+                                    <CreditCard size={40} className="text-blue-400" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Productos Hoy</p>
+                                        <p className="text-3xl font-bold text-green-600">S/. {totalVentasHoy}</p>
+                                    </div>
+                                    <ShoppingCart size={40} className="text-green-400" />
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl shadow p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-gray-600 text-sm">Total Hoy</p>
+                                        <p className="text-3xl font-bold text-orange-600">S/. {totalIngresos}</p>
+                                    </div>
+                                    <BarChart3 size={40} className="text-orange-400" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            <TabButton id="asistencia" icon={Users} label="Asistencia" />
+                            <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" />
+                            <TabButton id="ventas" icon={ShoppingCart} label="Ventas" />
+                            <TabButton id="inventario" icon={Package} label="Inventario" count={productos.filter(p => p.stock < 10).length} />
+                            <TabButton id="reportes" icon={BarChart3} label="Reportes" />
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            {activeTab === 'asistencia' && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800">Registrar Asistencia</h2>
+                                        <button
+                                            onClick={() => setShowAddCliente(true)}
+                                            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+                                        >
+                                            <Plus size={20} />
+                                            Nuevo Cliente
+                                        </button>
+                                    </div>
+
+                                    {showAddCliente && (
+                                        <div className="bg-purple-50 p-4 rounded-lg mb-4">
+                                            <div className="space-y-3">
+                                                <input
+                                                    type="text"
+                                                    value={nuevoCliente.nombre}
+                                                    onChange={(e) => setNuevoCliente({...nuevoCliente, nombre: e.target.value})}
+                                                    placeholder="Nombre del nuevo cliente"
+                                                    className="w-full px-4 py-2 border rounded-lg"
+                                                />
+                                                <select
+                                                    value={nuevoCliente.tipoMembresia}
+                                                    onChange={(e) => setNuevoCliente({...nuevoCliente, tipoMembresia: e.target.value})}
+                                                    className="w-full px-4 py-2 border rounded-lg"
+                                                >
+                                                    <option value="por_clase">Pago por Clase (S/. 9 - S/. 6)</option>
+                                                    <option value="mensual">Membresía Mensual</option>
+                                                </select>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={agregarCliente}
+                                                        className="flex-1 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700"
+                                                    >
+                                                        Agregar Cliente
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setShowAddCliente(false)}
+                                                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+                                                    >
+                                                        <X size={20} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="mb-4">
+                                        <div className="relative">
+                                            <Search size={20} className="absolute left-3 top-3 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                value={searchCliente}
+                                                onChange={(e) => setSearchCliente(e.target.value)}
+                                                placeholder="Buscar cliente..."
+                                                className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                                        {clientesFiltrados.map(cliente => {
+                                            const precio = cliente.tipoMembresia === 'mensual' 
+                                                ? (asistencias.filter(a => a.clienteId === cliente.id && new Date(a.fecha).toLocaleDateString('es-PE') === hoy).length > 0 ? 6 : 0)
+                                                : calcularPrecioClase(cliente.id);
+                                            
+                                            return (
+                                                <div key={cliente.id} className="p-3 border rounded-lg hover:bg-gray-50">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <span className="font-medium block">{cliente.nombre}</span>
+                                                            <span className={`text-xs px-2 py-1 rounded ${
+                                                                cliente.tipoMembresia === 'mensual' 
+                                                                    ? 'bg-blue-100 text-blue-700' 
+                                                                    : 'bg-green-100 text-green-700'
+                                                            }`}>
+                                                                {cliente.tipoMembresia === 'mensual' ? '📅 Mensual' : '💳 Por Clase'}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => registrarAsistencia(cliente.id)}
+                                                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1"
+                                                        >
+                                                            ✓ Presente
+                                                            {precio > 0 && <span className="text-xs">S/. {precio}</span>}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias de Hoy ({asistenciasHoy.length})</h3>
+                                    <div className="space-y-2">
+                                        {asistenciasHoy.map(a => {
+                                            const cliente = clientes.find(c => c.id === a.clienteId);
+                                            return (
+                                                <div key={a.id} className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                                    <div>
+                                                        <span className="font-medium block">{cliente?.nombre}</span>
+                                                        {a.esSegundaClaseDelDia && (
+                                                            <span className="text-xs text-blue-600">🔄 Segunda clase del día</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-right">
+                                                        {a.montoCobrado > 0 && (
+                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado}</span>
+                                                        )}
+                                                        <span className="text-gray-600 text-xs">{a.fechaFormato}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'mensualidades' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Mensualidades</h2>
+                                    
+                                    <div className="space-y-3">
+                                        {clientes.filter(c => c.tipoMembresia === 'mensual').map(cliente => {
+                                            const mesActual = new Date().getMonth();
+                                            const añoActual = new Date().getFullYear();
+                                            const yaPago = pagos.some(p => 
+                                                p.clienteId === cliente.id && 
+                                                p.tipo === 'mensualidad' &&
+                                                new Date(p.fecha).getMonth() === mesActual &&
+                                                new Date(p.fecha).getFullYear() === añoActual
+                                            );
+
+                                            return (
+                                                <div key={cliente.id} className={`p-4 rounded-lg border-2 ${
+                                                    yaPago ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'
+                                                }`}>
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <h4 className="font-bold text-gray-800">{cliente.nombre}</h4>
+                                                            <p className="text-sm text-gray-600">
+                                                                {yaPago ? '✓ Pagado este mes' : '⚠️ Pendiente de pago'}
+                                                            </p>
+                                                        </div>
+                                                        {!yaPago && (
+                                                            <div className="flex gap-2 items-center">
+                                                                <input
+                                                                    type="number"
+                                                                    id={`monto-mensualidad-${cliente.id}`}
+                                                                    placeholder="Monto"
+                                                                    className="w-24 px-3 py-2 border rounded"
+                                                                />
+                                                                <button
+                                                                    onClick={() => pagarMensualidad(cliente.id)}
+                                                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                                                                >
+                                                                    Pagar
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos</h3>
+                                    <div className="space-y-2">
+                                        {pagos.filter(p => p.tipo === 'mensualidad').slice(0, 10).map(p => {
+                                            const cliente = clientes.find(c => c.id === p.clienteId);
+                                            return (
+                                                <div key={p.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                                    <div>
+                                                        <p className="font-medium">{cliente?.nombre}</p>
+                                                        <p className="text-sm text-gray-600">{p.descripcion}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-600">S/. {p.monto}</p>
+                                                        <p className="text-xs text-gray-500">{p.fechaFormato}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'ventas' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Ventas de Productos Herbalife</h2>
+                                    
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 font-medium mb-2">Cliente</label>
+                                        <select
+                                            id="clienteVenta"
+                                            className="w-full px-4 py-2 border rounded-lg"
+                                        >
+                                            <option value="">Seleccionar cliente...</option>
+                                            {clientes.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        {productos.map(prod => (
+                                            <div key={prod.id} className="border rounded-lg p-4">
+                                                <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
+                                                <p className="text-green-600 font-bold">S/. {prod.precio}</p>
+                                                <p className="text-gray-600 text-sm">Stock: {prod.stock}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <input
+                                                        type="number"
+                                                        id={`cant-${prod.id}`}
+                                                        min="1"
+                                                        max={prod.stock}
+                                                        defaultValue="1"
+                                                        className="w-20 px-2 py-1 border rounded"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            const clienteId = document.getElementById('clienteVenta').value;
+                                                            const cantidad = parseInt(document.getElementById(`cant-${prod.id}`).value) || 1;
+                                                            if (clienteId && prod.stock >= cantidad) {
+                                                                registrarVenta(prod.id, parseInt(clienteId), cantidad);
+                                                                document.getElementById(`cant-${prod.id}`).value = 1;
+                                                            } else {
+                                                                alert('Selecciona un cliente y verifica el stock');
+                                                            }
+                                                        }}
+                                                        disabled={prod.stock === 0}
+                                                        className="flex-1 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 disabled:bg-gray-300"
+                                                    >
+                                                        Vender
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas de Hoy</h3>
+                                    <div className="space-y-2">
+                                        {ventasHoy.map(v => {
+                                            const cliente = clientes.find(c => c.id === v.clienteId);
+                                            const producto = productos.find(p => p.id === v.productoId);
+                                            return (
+                                                <div key={v.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                                    <div>
+                                                        <p className="font-medium">{cliente?.nombre}</p>
+                                                        <p className="text-sm text-gray-600">{producto?.nombre} x{v.cantidad}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-600">S/. {v.total}</p>
+                                                        <p className="text-xs text-gray-500">{v.fechaFormato}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'inventario' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Control de Inventario</h2>
+                                    
+                                    <div className="space-y-3">
+                                        {productos.map(prod => (
+                                            <div key={prod.id} className={`p-4 rounded-lg border-2 ${
+                                                prod.stock < 5 ? 'border-red-300 bg-red-50' : 
+                                                prod.stock < 10 ? 'border-yellow-300 bg-yellow-50' : 
+                                                'border-green-300 bg-green-50'
+                                            }`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
+                                                        <p className="text-gray-600">S/. {prod.precio}</p>
+                                                    </div>
+                                                    {prod.stock < 10 && (
+                                                        <div className="flex items-center gap-1 text-orange-600">
+                                                            <AlertCircle size={16} />
+                                                            <span className="text-sm font-medium">Stock Bajo</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2 items-center">
+                                                    <label className="text-gray-700 font-medium">Stock:</label>
+                                                    <input
+                                                        type="number"
+                                                        value={prod.stock}
+                                                        onChange={(e) => actualizarStock(prod.id, e.target.value)}
+                                                        className="w-24 px-3 py-1 border rounded"
+                                                        min="0"
+                                                    />
+                                                    <span className="text-gray-600">unidades</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'reportes' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy</h3>
+                                            <div className="space-y-2">
+                                                <p>Clases: <span className="font-bold text-blue-600">S/. {totalPagosHoy}</span></p>
+                                                <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasHoy}</span></p>
+                                                <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalIngresos}</span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-blue-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">👥 Resumen de Clientes</h3>
+                                            <div className="space-y-2">
+                                                <p>Clientes mensuales: <span className="font-bold">{clientes.filter(c => c.tipoMembresia === 'mensual').length}</span></p>
+                                                <p>Clientes por clase: <span className="font-bold">{clientes.filter(c => c.tipoMembresia === 'por_clase').length}</span></p>
+                                                <p>Total clientes: <span className="font-bold">{clientes.length}</span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-green-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">📊 Productos Más Vendidos</h3>
+                                            {(() => {
+                                                const ventasPorProducto = {};
+                                                ventas.forEach(v => {
+                                                    ventasPorProducto[v.productoId] = (ventasPorProducto[v.productoId] || 0) + v.cantidad;
+                                                });
+                                                const top = Object.entries(ventasPorProducto)
+                                                    .sort((a, b) => b[1] - a[1])
+                                                    .slice(0, 3);
+                                                
+                                                if (top.length === 0) {
+                                                    return <p className="text-gray-600">No hay ventas registradas</p>;
+                                                }
+                                                
+                                                return top.map(([prodId, cant]) => {
+                                                    const prod = productos.find(p => p.id === parseInt(prodId));
+                                                    return (
+                                                        <p key={prodId} className="mb-1">
+                                                            {prod?.nombre}: <span className="font-bold">{cant} unidades</span>
+                                                        </p>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+
+                                        <div className="bg-orange-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">⚠️ Alertas de Inventario</h3>
+                                            {productos.filter(p => p.stock < 10).map(p => (
+                                                <p key={p.id} className="mb-1 text-orange-700">
+                                                    ⚠️ {p.nombre}: {p.stock} unidades
+                                                </p>
+                                            ))}
+                                            {productos.filter(p => p.stock < 10).length === 0 && (
+                                                <p className="text-green-700">✓ Todo bien con el inventario</p>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-yellow-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">📅 Asistencia</h3>
+                                            <div className="space-y-2">
+                                                <p>Asistencias hoy: <span className="font-bold">{asistenciasHoy.length}</span></p>
+                                                <p>Total asistencias: <span className="font-bold">{asistencias.length}</span></p>
+                                                <p>Segundas clases hoy: <span className="font-bold text-blue-600">
+                                                    {asistenciasHoy.filter(a => a.esSegundaClaseDelDia).length}
+                                                </span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-pink-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">💵 Ingresos Totales</h3>
+                                            <div className="space-y-2">
+                                                <p>Clases (total): <span className="font-bold text-blue-600">
+                                                    S/. {pagos.filter(p => p.tipo === 'clase').reduce((sum, p) => sum + p.monto, 0)}
+                                                </span></p>
+                                                <p>Mensualidades (total): <span className="font-bold text-purple-600">
+                                                    S/. {pagos.filter(p => p.tipo === 'mensualidad').reduce((sum, p) => sum + p.monto, 0)}
+                                                </span></p>
+                                                <p>Productos (total): <span className="font-bold text-green-600">
+                                                    S/. {ventas.reduce((sum, v) => sum + v.total, 0)}
+                                                </span></p>
+                                                <p className="text-lg pt-2 border-t font-bold">Total general: 
+                                                    <span className="text-purple-600"> S/. {
+                                                        pagos.reduce((sum, p) => sum + p.monto, 0) + 
+                                                        ventas.reduce((sum, v) => sum + v.total, 0)
+                                                    }</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FitnessManagementApp />);
+    </script>
+</body>
+</html>
