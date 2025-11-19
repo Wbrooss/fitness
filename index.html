@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -28,7 +29,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         // Sistema de almacenamiento mejorado con localStorage
         const storage = {
@@ -177,7 +178,63 @@
                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
             </svg>
         );
+        
+        // ==========================================================
+        // NUEVO COMPONENTE: Gráfico con Chart.js
+        // ==========================================================
+        const DashboardChart = ({ type, data, options, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
 
+            useEffect(() => {
+                // Destruir el gráfico anterior si existe
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+
+                if (canvasRef.current) {
+                    const ctx = canvasRef.current.getContext('2d');
+                    
+                    // Crear el nuevo gráfico
+                    chartRef.current = new Chart(ctx, {
+                        type: type,
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title,
+                                    font: { size: 16, weight: 'bold' }
+                                },
+                                legend: {
+                                    position: type === 'doughnut' ? 'right' : 'top',
+                                }
+                            },
+                            ...options // Opciones personalizadas
+                        },
+                    });
+                }
+
+                // Función de limpieza al desmontar
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [type, data, options, title]); // Re-ejecutar si cambian los datos o el tipo
+
+            return (
+                <div className="p-4 bg-white rounded-lg shadow-md h-96">
+                    <canvas ref={canvasRef}></canvas>
+                </div>
+            );
+        };
+        
+        // ==========================================================
+        // APLICACIÓN PRINCIPAL
+        // ==========================================================
         function FitnessManagementApp() {
             const [activeTab, setActiveTab] = useState('asistencia');
             const [clientes, setClientes] = useState([]);
@@ -460,10 +517,13 @@
                 setAsistencias([asistencia, ...asistencias]);
 
                 if (requierePago && montoCobrado > 0) {
+                    // Tipo de pago para la clase. Si es cliente mensual activo que paga S/.6, el tipo de pago es 'clase_extra_mensualidad'
+                    const tipoPago = (cliente.tipoMembresia === 'mensual' && mensualidadActiva && montoCobrado === 6) ? 'clase_extra_mensualidad' : 'clase';
+
                     const pago = {
                         id: Date.now() + 1,
                         clienteId,
-                        tipo: 'clase',
+                        tipo: tipoPago,
                         monto: montoCobrado,
                         fecha: combinedDateTimeISO,
                         fechaFormato: combinedDateTimeFormat,
@@ -523,7 +583,7 @@
                     const venta = {
                         id: Date.now(),
                         productoId,
-                        clienteId,
+                        clienteId: parseInt(clienteId), // Asegurar que sea numérico
                         cantidad,
                         total: producto.precio * cantidad,
                         fecha: combinedDateTimeISO,
@@ -544,7 +604,7 @@
                 ));
             };
 
-            // NUEVAS FUNCIONES DE EDICIÓN/ELIMINACIÓN
+            // FUNCIONES DE EDICIÓN/ELIMINACIÓN
             const startEditing = (attendance) => {
                 setEditingAttendanceId(attendance.id);
                 setEditInstructor(attendance.instructor);
@@ -568,18 +628,13 @@
                     // 1. Eliminar la asistencia
                     setAsistencias(asistencias.filter(a => a.id !== id));
                     
-                    // 2. Intentar eliminar el pago asociado (solo si es pago por clase y no mensualidad)
-                    // Buscamos el pago registrado exactamente después de la asistencia (que se generó en la misma transacción)
+                    // 2. Intentar eliminar el pago asociado (solo si es pago por clase)
                     setPagos(pagos.filter(p => !(
-                        p.tipo === 'clase' && 
+                        (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad') && 
                         p.clienteId === deletedAsistencia.clienteId &&
                         p.monto === deletedAsistencia.montoCobrado &&
                         getAttendanceDateString(p.fecha) === getAttendanceDateString(deletedAsistencia.fecha)
                     )));
-
-                    // 3. Revisar y ajustar asistencias posteriores si es necesario (para el cálculo de 2da clase)
-                    // Este paso es complejo y se omite por ahora, pero la eliminación simple ya corrige el historial
-                    // para futuras asistencias en ese día.
                 }
             };
             // FIN NUEVAS FUNCIONES
@@ -599,12 +654,17 @@
                 getAttendanceDateString(v.fecha) === hoyISO
             );
 
-            const pagosHoy = pagos.filter(p => 
-                getAttendanceDateString(p.fecha) === hoyISO
+            const pagosClaseHoy = pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === hoyISO && (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad')
+            );
+            const pagosMensualidadHoy = pagos.filter(p => 
+                getAttendanceDateString(p.fecha) === hoyISO && p.tipo === 'mensualidad'
             );
 
+            const totalPagosClaseHoy = pagosClaseHoy.reduce((sum, p) => sum + p.monto, 0);
+            const totalPagosMensualidadHoy = pagosMensualidadHoy.reduce((sum, p) => sum + p.monto, 0);
             const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
-            const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+            const totalPagosHoy = totalPagosClaseHoy + totalPagosMensualidadHoy;
             const totalIngresos = totalVentasHoy + totalPagosHoy;
             
             // LÓGICA DE FILTRADO PARA REPORTES POR selectedReportDate
@@ -622,6 +682,105 @@
             const totalPagosReporte = pagosReporte.reduce((sum, p) => sum + p.monto, 0);
             const totalIngresosReporte = totalVentasReporte + totalPagosReporte;
             // FIN LÓGICA DE FILTRADO
+            
+            // ==========================================================
+            // LÓGICA DE GRÁFICOS (KPIs)
+            // ==========================================================
+            
+            // Función para obtener un rango de fechas de los últimos N días
+            const getFechaRango = (days) => {
+                const dates = [];
+                for (let i = days - 1; i >= 0; i--) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    dates.push(d.toISOString().split('T')[0]);
+                }
+                return dates;
+            }
+
+            // KPI 1: Ingresos Diarios Totales (Últimos 30 días)
+            const procesarIngresosDiarios = () => {
+                const last30Days = getFechaRango(30);
+                const ingresosPorDia = {};
+                
+                // Inicializar cada día con 0
+                last30Days.forEach(date => {
+                    ingresosPorDia[date] = 0;
+                });
+
+                // Agregar pagos
+                pagos.forEach(p => {
+                    const date = getAttendanceDateString(p.fecha);
+                    if (ingresosPorDia.hasOwnProperty(date)) {
+                        ingresosPorDia[date] += p.monto;
+                    }
+                });
+
+                // Agregar ventas
+                ventas.forEach(v => {
+                    const date = getAttendanceDateString(v.fecha);
+                    if (ingresosPorDia.hasOwnProperty(date)) {
+                        ingresosPorDia[date] += v.total;
+                    }
+                });
+
+                const labels = last30Days.map(date => {
+                    const [year, month, day] = date.split('-');
+                    return `${day}/${month}`;
+                });
+                const dataValues = last30Days.map(date => ingresosPorDia[date]);
+
+                return {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ingreso Diario Total (S/.)',
+                        data: dataValues,
+                        borderColor: 'rgb(126, 34, 206)', // Púrpura
+                        backgroundColor: 'rgba(126, 34, 206, 0.5)',
+                        tension: 0.3,
+                        borderWidth: 2,
+                        fill: true,
+                        pointRadius: 3
+                    }]
+                };
+            };
+            
+            // KPI 2: Ingresos por Fuente (Total histórico)
+            const procesarIngresosPorFuente = () => {
+                let totalMensualidad = 0;
+                let totalClase = 0; // Incluye clase normal y clase extra mensualidad
+                let totalProductos = 0;
+                
+                pagos.forEach(p => {
+                    if (p.tipo === 'mensualidad') {
+                        totalMensualidad += p.monto;
+                    } else if (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad') {
+                        totalClase += p.monto;
+                    }
+                });
+                
+                ventas.forEach(v => {
+                    totalProductos += v.total;
+                });
+                
+                return {
+                    labels: ['Mensualidades', 'Clases', 'Ventas de Productos'],
+                    datasets: [{
+                        data: [totalMensualidad, totalClase, totalProductos],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.8)', // Azul/Verde (Mensualidad)
+                            'rgba(255, 99, 132, 0.8)',  // Rojo (Clases)
+                            'rgba(255, 205, 86, 0.8)'   // Amarillo (Productos)
+                        ],
+                        borderColor: [
+                            'rgb(75, 192, 192)',
+                            'rgb(255, 99, 132)',
+                            'rgb(255, 205, 86)'
+                        ],
+                        borderWidth: 1
+                    }]
+                };
+            };
 
             const TabButton = ({ id, icon: Icon, label, count }) => (
                 <button
@@ -708,7 +867,7 @@
                             <div className="bg-white rounded-xl shadow p-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-gray-600 text-sm">Clases Hoy</p>
+                                        <p className="text-gray-600 text-sm">Pagos Clases/Mensualidad Hoy</p>
                                         <p className="text-3xl font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</p>
                                     </div>
                                     <CreditCard size={40} className="text-blue-400" />
@@ -730,7 +889,7 @@
                             <TabButton id="mensualidades" icon={Calendar} label="Mensualidades" />
                             <TabButton id="ventas" icon={ShoppingCart} label="Ventas" />
                             <TabButton id="inventario" icon={Package} label="Inventario" count={productos.filter(p => p.stock < 10).length} />
-                            <TabButton id="reportes" icon={BarChart3} label="Reportes" />
+                            <TabButton id="dashboard" icon={BarChart3} label="Dashboard" />
                         </div>
 
                         <div className="bg-white rounded-xl shadow-lg p-6">
@@ -1191,12 +1350,65 @@
                                 </div>
                             )}
 
-                            {activeTab === 'reportes' && (
+                            {activeTab === 'dashboard' && (
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">📈 Panel de Control (Dashboard)</h2>
                                     
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Ingresos y Distribución</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                        {/* GRÁFICO 1: Ingresos Diarios */}
+                                        <DashboardChart 
+                                            type="line"
+                                            data={procesarIngresosDiarios()}
+                                            options={{
+                                                scales: {
+                                                    y: {
+                                                        beginAtZero: true,
+                                                        title: { display: true, text: 'Monto (S/.)' }
+                                                    },
+                                                    x: {
+                                                        title: { display: true, text: 'Fecha' }
+                                                    }
+                                                }
+                                            }}
+                                            title="Ingreso Diario Total (Últimos 30 Días)"
+                                        />
+
+                                        {/* GRÁFICO 2: Ingresos por Fuente */}
+                                        <DashboardChart 
+                                            type="doughnut"
+                                            data={procesarIngresosPorFuente()}
+                                            options={{
+                                                // La leyenda ya se mueve a la derecha por el tipo de gráfico
+                                                plugins: {
+                                                    tooltip: {
+                                                        callbacks: {
+                                                            label: function(context) {
+                                                                let label = context.label || '';
+                                                                if (label) {
+                                                                    label += ': ';
+                                                                }
+                                                                if (context.parsed !== null) {
+                                                                    label += new Intl.NumberFormat('es-PE', { 
+                                                                        style: 'currency', 
+                                                                        currency: 'PEN' 
+                                                                    }).format(context.parsed);
+                                                                }
+                                                                return label;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            title="Distribución Total de Ingresos"
+                                        />
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen por Fecha Seleccionada</h3>
+                                    
+                                    {/* Controles de Reporte (se mantiene el reporte por fecha específica) */}
                                     <div className="mb-8 p-4 border rounded-lg bg-gray-50">
-                                        <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">🔍 Reporte por Fecha Específica</h3>
                                         <div className="mb-4 flex items-center gap-4 no-print">
                                             <label className="font-medium text-gray-700">Seleccionar Fecha:</label>
                                             <input
@@ -1209,7 +1421,7 @@
 
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                             <div className="bg-purple-100 p-4 rounded-lg">
-                                                <p className="text-sm text-gray-600">Total Ingresos ({getDisplayDate(selectedReportDate)})</p>
+                                                <p className="text-sm text-gray-600">Total Ingresos ({getAttendanceDateString(selectedReportDate)})</p>
                                                 <p className="text-2xl font-bold text-purple-700">S/. {totalIngresosReporte.toFixed(2)}</p>
                                             </div>
                                             <div className="bg-blue-100 p-4 rounded-lg">
@@ -1253,14 +1465,15 @@
                                             ) : <p className="text-gray-500">No hay ventas registradas para esta fecha.</p>}
                                         </div>
                                     </div>
-                                    
-                                    <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General</h3>
+
+                                    {/* MANTENEMOS EL RESUMEN GENERAL ABAJO */}
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General Histórico</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         
                                         <div className="bg-purple-50 p-4 rounded-lg">
                                             <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy</h3>
                                             <div className="space-y-2">
-                                                <p>Clases: <span className="font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</span></p>
+                                                <p>Clases y Mensualidades: <span className="font-bold text-blue-600">S/. {totalPagosHoy.toFixed(2)}</span></p>
                                                 <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasHoy.toFixed(2)}</span></p>
                                                 <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalIngresos.toFixed(2)}</span></p>
                                             </div>
@@ -1318,7 +1531,7 @@
                                             <div className="grid grid-cols-3 gap-4">
                                                 <div className="space-y-2">
                                                     <p>Clases (total): <span className="font-bold text-blue-600">
-                                                        S/. {pagos.filter(p => p.tipo === 'clase').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
+                                                        S/. {pagos.filter(p => p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad').reduce((sum, p) => sum + p.monto, 0).toFixed(2)}
                                                     </span></p>
                                                 </div>
                                                 <div className="space-y-2">
