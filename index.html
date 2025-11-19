@@ -775,4 +775,362 @@
                                                     </div>
                                                     <div className="text-right">
                                                         {a.montoCobrado > 0 && (
-                                                            <span className="font-bold text-green-600 block">S/. {a.montoCob
+                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado}</span>
+                                                        )}
+                                                        <span className="text-gray-600 text-xs">{a.fechaFormato}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'mensualidades' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Mensualidades</h2>
+                                    
+                                    <div className="space-y-3">
+                                        {clientes.filter(c => c.tipoMembresia === 'mensual').map(cliente => {
+                                            const mesActual = new Date().getMonth();
+                                            const añoActual = new Date().getFullYear();
+                                            const yaPago = pagos.some(p => 
+                                                p.clienteId === cliente.id && 
+                                                p.tipo === 'mensualidad' &&
+                                                new Date(p.fecha).getMonth() === mesActual &&
+                                                new Date(p.fecha).getFullYear() === añoActual
+                                            );
+
+                                            return (
+                                                <div key={cliente.id} className={`p-4 rounded-lg border-2 ${
+                                                    yaPago ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'
+                                                }`}>
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <h4 className="font-bold text-gray-800">{cliente.nombre}</h4>
+                                                            <p className="text-sm text-gray-600">
+                                                                {yaPago ? '✓ Pagado este mes' : '⚠️ Pendiente de pago'}
+                                                            </p>
+                                                        </div>
+                                                        {!yaPago && (
+                                                            <div className="flex gap-2 items-center no-print">
+                                                                <input
+                                                                    type="number"
+                                                                    id={`monto-mensualidad-${cliente.id}`}
+                                                                    placeholder="Monto"
+                                                                    className="w-24 px-3 py-2 border rounded"
+                                                                />
+                                                                <button
+                                                                    onClick={() => pagarMensualidad(cliente.id)}
+                                                                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                                                                >
+                                                                    Pagar
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos</h3>
+                                    <div className="space-y-2">
+                                        {pagos.filter(p => p.tipo === 'mensualidad').slice(0, 10).map(p => {
+                                            const cliente = clientes.find(c => c.id === p.clienteId);
+                                            return (
+                                                <div key={p.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                                    <div>
+                                                        <p className="font-medium">{cliente?.nombre}</p>
+                                                        <p className="text-sm text-gray-600">{p.descripcion}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-600">S/. {p.monto}</p>
+                                                        <p className="text-xs text-gray-500">{p.fechaFormato}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'ventas' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Ventas de Productos Herbalife</h2>
+                                    
+                                    <div className="mb-4 no-print">
+                                        <label className="block text-gray-700 font-medium mb-2">Cliente</label>
+                                        <select
+                                            id="clienteVenta"
+                                            className="w-full px-4 py-2 border rounded-lg"
+                                        >
+                                            <option value="">Seleccionar cliente...</option>
+                                            {clientes.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 no-print">
+                                        {productos.map(prod => (
+                                            <div key={prod.id} className="border rounded-lg p-4">
+                                                <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
+                                                <p className="text-green-600 font-bold">S/. {prod.precio}</p>
+                                                <p className="text-gray-600 text-sm">Stock: {prod.stock}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <input
+                                                        type="number"
+                                                        id={`cant-${prod.id}`}
+                                                        min="1"
+                                                        max={prod.stock}
+                                                        defaultValue="1"
+                                                        className="w-20 px-2 py-1 border rounded"
+                                                    />
+                                                    <button
+                                                        onClick={() => {
+                                                            const clienteId = document.getElementById('clienteVenta').value;
+                                                            const cantidad = parseInt(document.getElementById(`cant-${prod.id}`).value) || 1;
+                                                            if (clienteId && prod.stock >= cantidad) {
+                                                                registrarVenta(prod.id, parseInt(clienteId), cantidad);
+                                                                document.getElementById(`cant-${prod.id}`).value = 1;
+                                                            } else {
+                                                                alert('Selecciona un cliente y verifica el stock');
+                                                            }
+                                                        }}
+                                                        disabled={prod.stock === 0}
+                                                        className="flex-1 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 disabled:bg-gray-300"
+                                                    >
+                                                        Vender
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas de Hoy</h3>
+                                    <div className="space-y-2">
+                                        {ventasHoy.map(v => {
+                                            const cliente = clientes.find(c => c.id === v.clienteId);
+                                            const producto = productos.find(p => p.id === v.productoId);
+                                            return (
+                                                <div key={v.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                                    <div>
+                                                        <p className="font-medium">{cliente?.nombre}</p>
+                                                        <p className="text-sm text-gray-600">{producto?.nombre} x{v.cantidad}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-600">S/. {v.total}</p>
+                                                        <p className="text-xs text-gray-500">{v.fechaFormato}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'inventario' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Control de Inventario</h2>
+                                    
+                                    <div className="space-y-3">
+                                        {productos.map(prod => (
+                                            <div key={prod.id} className={`p-4 rounded-lg border-2 ${
+                                                prod.stock < 5 ? 'border-red-300 bg-red-50' : 
+                                                prod.stock < 10 ? 'border-yellow-300 bg-yellow-50' : 
+                                                'border-green-300 bg-green-50'
+                                            }`}>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800">{prod.nombre}</h4>
+                                                        <p className="text-gray-600">S/. {prod.precio}</p>
+                                                    </div>
+                                                    {prod.stock < 10 && (
+                                                        <div className="flex items-center gap-1 text-orange-600">
+                                                            <AlertCircle size={16} />
+                                                            <span className="text-sm font-medium">Stock Bajo</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2 items-center no-print">
+                                                    <label className="text-gray-700 font-medium">Stock:</label>
+                                                    <input
+                                                        type="number"
+                                                        value={prod.stock}
+                                                        onChange={(e) => actualizarStock(prod.id, e.target.value)}
+                                                        className="w-24 px-3 py-1 border rounded"
+                                                        min="0"
+                                                    />
+                                                    <span className="text-gray-600">unidades</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'reportes' && (
+                                <div>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
+                                    
+                                    {/* --- NUEVA SECCIÓN: REPORTE POR FECHA --- */}
+                                    <div className="bg-purple-100 p-6 rounded-xl mb-6 shadow-md no-print">
+                                        <h3 className="text-xl font-bold text-purple-800 mb-3 flex items-center gap-2">
+                                            <Calendar size={20} />
+                                            Reporte Diario: {selectedSummary.date}
+                                        </h3>
+                                        
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <label className="text-gray-700 font-medium">Seleccionar Fecha:</label>
+                                            <input
+                                                type="date"
+                                                value={selectedDate}
+                                                onChange={(e) => setSelectedDate(e.target.value)}
+                                                className="px-3 py-2 border rounded-lg"
+                                            />
+                                        </div>
+
+                                        {selectedDate && (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                                
+                                                {/* Card 1: Ingresos Totales */}
+                                                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-purple-500">
+                                                    <p className="text-sm text-gray-500">Total Ingresos</p>
+                                                    <p className="text-2xl font-bold text-purple-700">S/. {selectedSummary.totalIngresos.toFixed(2)}</p>
+                                                    <p className="text-xs text-gray-500">Clases: S/. {selectedSummary.totalPagos.toFixed(2)} | Productos: S/. {selectedSummary.totalVentas.toFixed(2)}</p>
+                                                </div>
+
+                                                {/* Card 2: Asistencia */}
+                                                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+                                                    <p className="text-sm text-gray-500">Asistencia ({selectedSummary.asistenciasCount})</p>
+                                                    <p className="text-lg font-bold text-blue-700">Asistentes Únicos: {selectedSummary.uniqueAttendees.length}</p>
+                                                    <p className="text-xs text-gray-500 truncate" title={selectedSummary.uniqueAttendees.join(', ')}>
+                                                        {selectedSummary.uniqueAttendees.slice(0, 3).join(', ') + (selectedSummary.uniqueAttendees.length > 3 ? ' y más...' : '')}
+                                                    </p>
+                                                </div>
+
+                                                {/* Card 3: Productos Vendidos */}
+                                                <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
+                                                    <p className="text-sm text-gray-500">Productos Vendidos ({selectedSummary.productsSold.length})</p>
+                                                    {selectedSummary.productsSold.length > 0 ? (
+                                                        <div className="text-sm text-green-700 font-medium space-y-1 mt-1">
+                                                            {selectedSummary.productsSold.slice(0, 3).map((p, index) => (
+                                                                <p key={index}>{p.name} (x{p.quantity})</p>
+                                                            ))}
+                                                            {selectedSummary.productsSold.length > 3 && <p className="text-xs text-gray-500">...</p>}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-gray-500 mt-2">Ninguna venta de producto</p>
+                                                    )}
+                                                </div>
+                                                
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* --- FIN NUEVA SECCIÓN: REPORTE POR FECHA --- */}
+                                    
+                                    <h3 className="text-xl font-bold text-gray-800 mb-3">Estadísticas Generales</h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-purple-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">💰 Ingresos de Hoy</h3>
+                                            <div className="space-y-2">
+                                                <p>Clases: <span className="font-bold text-blue-600">S/. {totalPagosHoy}</span></p>
+                                                <p>Productos: <span className="font-bold text-green-600">S/. {totalVentasHoy}</span></p>
+                                                <p className="text-lg pt-2 border-t">Total: <span className="font-bold text-purple-600">S/. {totalPagosHoy + totalVentasHoy}</span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-blue-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">👥 Resumen de Clientes</h3>
+                                            <div className="space-y-2">
+                                                <p>Clientes mensuales: <span className="font-bold">{clientes.filter(c => c.tipoMembresia === 'mensual').length}</span></p>
+                                                <p>Clientes por clase: <span className="font-bold">{clientes.filter(c => c.tipoMembresia === 'por_clase').length}</span></p>
+                                                <p>Total clientes: <span className="font-bold">{clientes.length}</span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-green-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">📊 Productos Más Vendidos</h3>
+                                            {(() => {
+                                                const ventasPorProducto = {};
+                                                ventas.forEach(v => {
+                                                    ventasPorProducto[v.productoId] = (ventasPorProducto[v.productoId] || 0) + v.cantidad;
+                                                });
+                                                const top = Object.entries(ventasPorProducto)
+                                                    .sort((a, b) => b[1] - a[1])
+                                                    .slice(0, 3);
+                                                
+                                                if (top.length === 0) {
+                                                    return <p className="text-gray-600">No hay ventas registradas</p>;
+                                                }
+                                                
+                                                return top.map(([prodId, cant]) => {
+                                                    const prod = productos.find(p => p.id === parseInt(prodId));
+                                                    return (
+                                                        <p key={prodId} className="mb-1">
+                                                            {prod?.nombre}: <span className="font-bold">{cant} unidades</span>
+                                                        </p>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+
+                                        <div className="bg-orange-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">⚠️ Alertas de Inventario</h3>
+                                            {productos.filter(p => p.stock < 10).map(p => (
+                                                <p key={p.id} className="mb-1 text-orange-700">
+                                                    ⚠️ {p.nombre}: {p.stock} unidades
+                                                </p>
+                                            ))}
+                                            {productos.filter(p => p.stock < 10).length === 0 && (
+                                                <p className="text-green-700">✓ Todo bien con el inventario</p>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-yellow-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">📅 Asistencia</h3>
+                                            <div className="space-y-2">
+                                                <p>Asistencias hoy: <span className="font-bold">{asistenciasHoy.length}</span></p>
+                                                <p>Total asistencias: <span className="font-bold">{asistencias.length}</span></p>
+                                                <p>Segundas clases hoy: <span className="font-bold text-blue-600">
+                                                    {asistenciasHoy.filter(a => a.esSegundaClaseDelDia).length}
+                                                </span></p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-pink-50 p-4 rounded-lg">
+                                            <h3 className="font-bold text-lg mb-3">💵 Ingresos Totales</h3>
+                                            <div className="space-y-2">
+                                                <p>Clases (total): <span className="font-bold text-blue-600">
+                                                    S/. {pagos.filter(p => p.tipo === 'clase').reduce((sum, p) => sum + p.monto, 0)}
+                                                </span></p>
+                                                <p>Mensualidades (total): <span className="font-bold text-purple-600">
+                                                    S/. {pagos.filter(p => p.tipo === 'mensualidad').reduce((sum, p) => sum + p.monto, 0)}
+                                                </span></p>
+                                                <p>Productos (total): <span className="font-bold text-green-600">
+                                                    S/. {ventas.reduce((sum, v) => sum + v.total, 0)}
+                                                </span></p>
+                                                <p className="text-lg pt-2 border-t font-bold">Total general: 
+                                                    <span className="text-purple-600"> S/. {
+                                                        pagos.reduce((sum, p) => sum + p.monto, 0) + 
+                                                        ventas.reduce((sum, v) => sum + v.total, 0)
+                                                    }</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<FitnessManagementApp />);
+    </script>
+</body>
+</html>
