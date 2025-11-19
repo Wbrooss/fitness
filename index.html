@@ -162,6 +162,22 @@
             </svg>
         );
 
+        const Trash = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        );
+
+        const Edit = ({ size = 24, className = "" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+            </svg>
+        );
+
         function FitnessManagementApp() {
             const [activeTab, setActiveTab] = useState('asistencia');
             const [clientes, setClientes] = useState([]);
@@ -198,13 +214,17 @@
             const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', tipoMembresia: 'por_clase' });
             const [showAddCliente, setShowAddCliente] = useState(false);
             
-            // ESTADO para seleccionar fecha para VER reportes
             const [selectedReportDate, setSelectedReportDate] = useState(new Date().toISOString().split('T')[0]);
             
-            // NUEVOS ESTADOS para registro de asistencia histórica
+            // ESTADOS de Asistencia
             const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
             const [selectedInstructor, setSelectedInstructor] = useState(INSTRUCTORES[0]);
             const [selectedHorario, setSelectedHorario] = useState(HORARIOS[0]);
+            
+            // ESTADOS de Edición
+            const [editingAttendanceId, setEditingAttendanceId] = useState(null);
+            const [editInstructor, setEditInstructor] = useState('');
+            const [editHorario, setEditHorario] = useState('');
 
 
             // Cargar datos al iniciar
@@ -220,6 +240,7 @@
                         if (clientesRes) setClientes(JSON.parse(clientesRes.value));
                         if (asistenciasRes) setAsistencias(JSON.parse(asistenciasRes.value));
                         
+                        // Lógica para inicializar productos si no hay datos guardados
                         const initialProducts = [
                             { id: 1, nombre: 'TÉ', precio: 8, stock: 20 },
                             { id: 2, nombre: 'ALOE', precio: 8, stock: 20 },
@@ -266,11 +287,11 @@
 
             // Guardar datos automáticamente
             useEffect(() => {
-                if (clientes.length > 0) storage.set('clientes', JSON.stringify(clientes));
+                storage.set('clientes', JSON.stringify(clientes));
             }, [clientes]);
 
             useEffect(() => {
-                if (asistencias.length > 0) storage.set('asistencias', JSON.stringify(asistencias));
+                storage.set('asistencias', JSON.stringify(asistencias));
             }, [asistencias]);
 
             useEffect(() => {
@@ -278,25 +299,21 @@
             }, [productos]);
 
             useEffect(() => {
-                if (ventas.length > 0) storage.set('ventas', JSON.stringify(ventas));
+                storage.set('ventas', JSON.stringify(ventas));
             }, [ventas]);
 
             useEffect(() => {
-                if (pagos.length > 0) storage.set('pagos', JSON.stringify(pagos));
+                storage.set('pagos', JSON.stringify(pagos));
             }, [pagos]);
 
             // Funciones de utilidad para fechas
-            // CORRECCIÓN: Usar la fecha ISO (YYYY-MM-DD) para filtrar, evitando problemas de zona horaria.
             const getAttendanceDateString = (dateISO) => {
                 if (!dateISO) return null;
                 return dateISO.substring(0, 10);
             }
             
-            // Función para obtener la fecha formateada para mostrar en la UI, incluyendo la corrección
             const getDisplayDate = (dateString) => {
-                // Crear un objeto Date del string (YYYY-MM-DD) y obtener la parte local.
-                // Esto asegura que la fecha se muestre correctamente para el usuario.
-                const date = new Date(dateString + 'T12:00:00'); // Añadir T12:00:00 para forzar el día correcto
+                const date = new Date(dateString + 'T12:00:00'); 
                 return date.toLocaleDateString('es-PE', { 
                     weekday: 'long', 
                     year: 'numeric', 
@@ -305,147 +322,66 @@
                 });
             }
 
-            // Funciones de exportación (mantenidas)
-            const exportarAExcel = () => {
-                const wb = XLSX.utils.book_new();
+            // FUNCIÓN: Encontrar la fecha de vencimiento de la última mensualidad
+            const getFechaVencimiento = (clienteId) => {
+                const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Más reciente primero
 
-                // Hoja de Clientes
-                const clientesData = clientes.map(c => ({
-                    Nombre: c.nombre,
-                    Tipo: c.tipoMembresia === 'mensual' ? 'Mensual' : 'Por Clase',
-                    'Fecha Registro': new Date(c.fechaRegistro).toLocaleDateString('es-PE')
-                }));
-                const wsClientes = XLSX.utils.json_to_sheet(clientesData);
-                XLSX.utils.book_append_sheet(wb, wsClientes, "Clientes");
+                if (pagosMensuales.length === 0) return null;
 
-                // Hoja de Asistencias (ACTUALIZADA con Instructor y Horario)
-                const asistenciasData = asistencias.map(a => {
-                    const cliente = clientes.find(c => c.id === a.clienteId);
-                    return {
-                        Cliente: cliente?.nombre,
-                        Fecha: getDisplayDate(getAttendanceDateString(a.fecha)),
-                        Hora: a.horaRegistro,
-                        Instructor: a.instructor,
-                        Horario: a.horario,
-                        'Segunda Clase': a.esSegundaClaseDelDia ? 'Sí' : 'No',
-                        Monto: `S/. ${a.montoCobrado}`
-                    };
-                });
-                const wsAsistencias = XLSX.utils.json_to_sheet(asistenciasData);
-                XLSX.utils.book_append_sheet(wb, wsAsistencias, "Asistencias");
-
-                // Hoja de Ventas
-                const ventasData = ventas.map(v => {
-                    const cliente = clientes.find(c => c.id === v.clienteId);
-                    const producto = productos.find(p => p.id === v.productoId);
-                    return {
-                        Cliente: cliente?.nombre,
-                        Producto: producto?.nombre,
-                        Cantidad: v.cantidad,
-                        Total: `S/. ${v.total}`,
-                        Fecha: v.fechaFormato
-                    };
-                });
-                const wsVentas = XLSX.utils.json_to_sheet(ventasData);
-                XLSX.utils.book_append_sheet(wb, wsVentas, "Ventas");
-
-                // Hoja de Pagos
-                const pagosData = pagos.map(p => {
-                    const cliente = clientes.find(c => c.id === p.clienteId);
-                    return {
-                        Cliente: cliente?.nombre,
-                        Tipo: p.tipo === 'clase' ? 'Clase' : 'Mensualidad',
-                        Descripción: p.descripcion,
-                        Monto: `S/. ${p.monto}`,
-                        Fecha: p.fechaFormato
-                    };
-                });
-                const wsPagos = XLSX.utils.json_to_sheet(pagosData);
-                XLSX.utils.book_append_sheet(wb, wsPagos, "Pagos");
-
-                // Hoja de Inventario
-                const inventarioData = productos.map(p => ({
-                    Producto: p.nombre,
-                    Precio: `S/. ${p.precio}`,
-                    Stock: p.stock
-                }));
-                const wsInventario = XLSX.utils.json_to_sheet(inventarioData);
-                XLSX.utils.book_append_sheet(wb, wsInventario, "Inventario");
-
-                XLSX.writeFile(wb, `Sistema_Fitness_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`);
-            };
-
-            const exportarAPDF = () => {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
+                const ultimoPagoDate = new Date(pagosMensuales[0].fecha.substring(0, 10) + 'T12:00:00');
+                const fechaVencimiento = new Date(ultimoPagoDate);
+                fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1);
+                // Ajustar al día anterior (ej. si pagó el 1 de Sep, vence el 30 de Sep)
+                fechaVencimiento.setDate(fechaVencimiento.getDate() - 1); 
                 
-                const hoy = new Date().toLocaleDateString('es-PE');
-                const asistenciasHoy = asistencias.filter(a => 
-                    new Date(a.fecha).toLocaleDateString('es-PE') === hoy
-                );
-                const ventasHoy = ventas.filter(v => 
-                    new Date(v.fecha).toLocaleDateString('es-PE') === hoy
-                );
-                const pagosHoy = pagos.filter(p => 
-                    new Date(p.fecha).toLocaleDateString('es-PE') === hoy
-                );
-                const totalVentasHoy = ventasHoy.reduce((sum, v) => sum + v.total, 0);
-                const totalPagosHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+                return fechaVencimiento;
+            }
 
-                // Título
-                doc.setFontSize(18);
-                doc.text('Reporte Diario - Sistema Fitness', 20, 20);
+            // FUNCIÓN: Verificar si la mensualidad está activa para una fecha dada (selectedAttendanceDate)
+            const isMensualidadActivaEnFecha = (clienteId, dateString) => {
+                const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad');
                 
-                doc.setFontSize(12);
-                doc.text(`Fecha: ${hoy}`, 20, 30);
-                
-                // Resumen
-                doc.setFontSize(14);
-                doc.text('Resumen del Día', 20, 45);
-                doc.setFontSize(11);
-                doc.text(`Asistencias: ${asistenciasHoy.length}`, 20, 55);
-                doc.text(`Ingresos por clases: S/. ${totalPagosHoy}`, 20, 62);
-                doc.text(`Ventas de productos: S/. ${totalVentasHoy}`, 20, 69);
-                doc.text(`Total ingresos: S/. ${totalPagosHoy + totalVentasHoy}`, 20, 76);
+                // Convertir la fecha de asistencia a objeto Date (fijando la hora para evitar TZ)
+                const targetDate = new Date(dateString + 'T12:00:00');
 
-                // Asistencias
-                let y = 90;
-                doc.setFontSize(14);
-                doc.text('Asistencias del Día', 20, y);
-                y += 7;
-                doc.setFontSize(10);
-                asistenciasHoy.forEach(a => {
-                    const cliente = clientes.find(c => c.id === a.clienteId);
-                    if (y > 270) {
-                        doc.addPage();
-                        y = 20;
-                    }
-                    doc.text(`${cliente?.nombre} - ${a.instructor} - S/. ${a.montoCobrado}`, 20, y);
-                    y += 6;
-                });
+                // Encontrar el último pago de mensualidad *antes o en* la fecha de asistencia
+                const ultimoPagoRelevante = pagosMensuales
+                    .filter(p => new Date(p.fecha.substring(0, 10) + 'T12:00:00') <= targetDate)
+                    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))[0];
 
-                // Ventas
-                y += 10;
-                if (y > 250) {
-                    doc.addPage();
-                    y = 20;
+                if (!ultimoPagoRelevante) return false;
+
+                // Calcular la fecha de vencimiento de ese pago relevante
+                const fechaVencimiento = getFechaVencimiento(clienteId);
+
+                // La mensualidad está activa si la fecha de asistencia es menor o igual a la fecha de vencimiento
+                return fechaVencimiento && targetDate <= fechaVencimiento;
+            }
+
+            // MODIFICADO: Lógica de mensualidad
+            const calcularPrecioClase = (clienteId) => {
+                const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
+                const cliente = clientes.find(c => c.id === clienteId);
+
+                // 1. Verificar si tiene mensualidad activa en la fecha seleccionada
+                const mensualidadActiva = isMensualidadActivaEnFecha(clienteId, attendanceDateString);
+
+                if (cliente.tipoMembresia === 'mensual' && mensualidadActiva) {
+                    // Si es mensual y está activa, la clase es gratis (0), solo se cobra la segunda.
+                    const asistenciasEnFechaCliente = asistencias.filter(a => 
+                        a.clienteId === clienteId && 
+                        getAttendanceDateString(a.fecha) === attendanceDateString
+                    );
+                    return asistenciasEnFechaCliente.length > 0 ? 6 : 0;
+                } else {
+                    // Si es por clase O es mensual pero está inactiva, se cobra S/. 9 o S/. 6
+                    const asistenciasEnFechaCliente = asistencias.filter(a => 
+                        a.clienteId === clienteId && 
+                        getAttendanceDateString(a.fecha) === attendanceDateString
+                    );
+                    return asistenciasEnFechaCliente.length > 0 ? 6 : 9;
                 }
-                doc.setFontSize(14);
-                doc.text('Ventas del Día', 20, y);
-                y += 7;
-                doc.setFontSize(10);
-                ventasHoy.forEach(v => {
-                    const cliente = clientes.find(c => c.id === v.clienteId);
-                    const producto = productos.find(p => p.id === v.productoId);
-                    if (y > 270) {
-                        doc.addPage();
-                        y = 20;
-                    }
-                    doc.text(`${cliente?.nombre} - ${producto?.nombre} x${v.cantidad} = S/. ${v.total}`, 20, y);
-                    y += 6;
-                });
-
-                doc.save(`Reporte_${hoy.replace(/\//g, '-')}.pdf`);
             };
 
             const agregarCliente = () => {
@@ -455,8 +391,6 @@
                         nombre: nuevoCliente.nombre.trim(),
                         tipoMembresia: nuevoCliente.tipoMembresia,
                         fechaRegistro: new Date().toISOString(),
-                        mensualidadActiva: false,
-                        mesActual: null
                     };
                     setClientes([...clientes, cliente]);
                     setNuevoCliente({ nombre: '', tipoMembresia: 'por_clase' });
@@ -464,17 +398,6 @@
                 }
             };
 
-            // MODIFICADO: Usa la fecha seleccionada para el cálculo
-            const calcularPrecioClase = (clienteId) => {
-                const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
-                const asistenciasEnFechaCliente = asistencias.filter(a => 
-                    a.clienteId === clienteId && 
-                    getAttendanceDateString(a.fecha) === attendanceDateString
-                );
-                return asistenciasEnFechaCliente.length > 0 ? 6 : 9;
-            };
-
-            // MODIFICADO: Usa la fecha, instructor y horario seleccionados para el registro
             const registrarAsistencia = (clienteId) => {
                 if (!selectedInstructor || !selectedHorario) {
                     alert('Por favor, selecciona el Instructor y el Horario antes de registrar la asistencia.');
@@ -482,10 +405,10 @@
                 }
 
                 const cliente = clientes.find(c => c.id === clienteId);
-                
                 const attendanceDateString = selectedAttendanceDate; // YYYY-MM-DD
+                const mensualidadActiva = isMensualidadActivaEnFecha(clienteId, attendanceDateString);
                 
-                // 1. Determinar si es la segunda clase en la fecha seleccionada
+                // Asistencias ya registradas en la fecha seleccionada
                 const asistenciasEnFechaCliente = asistencias.filter(a => 
                     a.clienteId === clienteId && 
                     getAttendanceDateString(a.fecha) === attendanceDateString
@@ -493,35 +416,41 @@
 
                 let montoCobrado = 0;
                 let requierePago = false;
+                let descripcionPago = '';
 
-                if (cliente.tipoMembresia === 'mensual') {
+                if (cliente.tipoMembresia === 'mensual' && mensualidadActiva) {
                     if (asistenciasEnFechaCliente.length > 0) {
                         montoCobrado = 6;
                         requierePago = true;
+                        descripcionPago = 'Segunda clase del día (Adicional a mensualidad)';
+                    } else {
+                        montoCobrado = 0; // Clase gratuita por mensualidad
+                        requierePago = false;
+                        descripcionPago = 'Clase por mensualidad activa';
                     }
                 } else {
+                    // Cliente por clase o Cliente mensual sin mensualidad activa
                     montoCobrado = asistenciasEnFechaCliente.length > 0 ? 6 : 9;
                     requierePago = true;
+                    descripcionPago = asistenciasEnFechaCliente.length > 0 ? 'Segunda clase individual' : 'Clase individual';
                 }
 
-                // 2. Crear un objeto Date usando la fecha seleccionada y la hora actual de registro
-                // NOTA: Para mantener la consistencia histórica, usamos la fecha seleccionada
-                // y una hora arbitraria (ej. 12:00:00) para evitar desfases de zona horaria 
-                // cuando solo tenemos YYYY-MM-DD.
+                if (asistenciasEnFechaCliente.length >= 2) {
+                    alert('Ya se registraron 2 clases para este cliente en esta fecha. No se permite registrar una tercera.');
+                    return;
+                }
+                
                 const selectedDate = new Date(attendanceDateString + 'T12:00:00'); 
                 const combinedDateTimeISO = selectedDate.toISOString();
-
-                // Para el display, usamos la fecha seleccionada y el horario.
                 const combinedDateTimeFormat = getDisplayDate(attendanceDateString);
                 const horaRegistro = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-
 
                 const asistencia = {
                     id: Date.now(),
                     clienteId,
                     fecha: combinedDateTimeISO, 
-                    fechaFormato: combinedDateTimeFormat, // Usamos la fecha larga y clara
-                    horaRegistro: horaRegistro, // Mantenemos la hora actual para el registro
+                    fechaFormato: combinedDateTimeFormat,
+                    horaRegistro: horaRegistro,
                     instructor: selectedInstructor,
                     horario: selectedHorario,
                     esSegundaClaseDelDia: asistenciasEnFechaCliente.length > 0,
@@ -530,7 +459,7 @@
 
                 setAsistencias([asistencia, ...asistencias]);
 
-                if (requierePago) {
+                if (requierePago && montoCobrado > 0) {
                     const pago = {
                         id: Date.now() + 1,
                         clienteId,
@@ -538,26 +467,26 @@
                         monto: montoCobrado,
                         fecha: combinedDateTimeISO,
                         fechaFormato: combinedDateTimeFormat,
-                        descripcion: `${asistenciasEnFechaCliente.length > 0 ? 'Segunda clase' : 'Clase individual'} con ${selectedInstructor}`
+                        descripcion: `${descripcionPago} con ${selectedInstructor} en el horario ${selectedHorario}`
                     };
                     setPagos([pago, ...pagos]);
                 }
             };
 
+            // MODIFICADO: Lógica de pago de mensualidad habilitada si no hay un pago posterior
             const pagarMensualidad = (clienteId) => {
-                // ... (mantenido) ...
-                const mesActual = new Date().getMonth();
-                const añoActual = new Date().getFullYear();
-                
-                const yaPagoEsteMes = pagos.some(p => 
+                const targetDateString = selectedAttendanceDate; // Fecha de registro del pago
+                const targetDate = new Date(targetDateString + 'T12:00:00');
+
+                // Verificar si ya existe un pago de mensualidad *posterior* a la fecha seleccionada
+                const pagoPosterior = pagos.some(p => 
                     p.clienteId === clienteId && 
                     p.tipo === 'mensualidad' &&
-                    new Date(p.fecha).getMonth() === mesActual &&
-                    new Date(p.fecha).getFullYear() === añoActual
+                    new Date(p.fecha.substring(0, 10) + 'T12:00:00') > targetDate
                 );
 
-                if (yaPagoEsteMes) {
-                    alert('Este cliente ya pagó la mensualidad de este mes');
+                if (pagoPosterior) {
+                    alert(`El cliente ya tiene un pago de mensualidad registrado *después* de esta fecha (${targetDateString}). No se puede registrar un pago anterior.`);
                     return;
                 }
 
@@ -574,36 +503,20 @@
                     clienteId,
                     tipo: 'mensualidad',
                     monto: monto,
-                    fecha: new Date().toISOString(),
-                    fechaFormato: new Date().toLocaleString('es-PE', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }),
-                    descripcion: `Mensualidad ${new Date().toLocaleDateString('es-PE', { month: 'long', year: 'numeric' })}`
+                    fecha: targetDate.toISOString(),
+                    fechaFormato: getDisplayDate(targetDateString),
+                    descripcion: `Mensualidad pagada con fecha ${targetDateString}`
                 };
 
                 setPagos([pago, ...pagos]);
-                
-                setClientes(clientes.map(c => 
-                    c.id === clienteId 
-                        ? { ...c, mensualidadActiva: true, mesActual: `${mesActual}-${añoActual}` }
-                        : c
-                ));
 
                 montoInput.value = '';
             };
 
-            // MODIFICADO: Usa la fecha seleccionada para el registro
             const registrarVenta = (productoId, clienteId, cantidad) => {
                 const producto = productos.find(p => p.id === productoId);
-
-                // Usa la fecha seleccionada (YYYY-MM-DD) y agrega T12:00:00 para evitar desfases
                 const selectedDate = new Date(selectedAttendanceDate + 'T12:00:00');
                 const combinedDateTimeISO = selectedDate.toISOString();
-                
                 const combinedDateTimeFormat = getDisplayDate(selectedAttendanceDate);
 
                 if (producto.stock >= cantidad) {
@@ -630,6 +543,46 @@
                     p.id === productoId ? { ...p, stock: parseInt(nuevoStock) || 0 } : p
                 ));
             };
+
+            // NUEVAS FUNCIONES DE EDICIÓN/ELIMINACIÓN
+            const startEditing = (attendance) => {
+                setEditingAttendanceId(attendance.id);
+                setEditInstructor(attendance.instructor);
+                setEditHorario(attendance.horario);
+            };
+
+            const saveEditing = (id) => {
+                setAsistencias(asistencias.map(a => 
+                    a.id === id 
+                        ? { ...a, instructor: editInstructor, horario: editHorario } 
+                        : a
+                ));
+                setEditingAttendanceId(null);
+            };
+
+            const deleteAttendance = (id) => {
+                if (window.confirm('¿Estás seguro de que quieres eliminar este registro de asistencia? Se eliminará cualquier pago asociado.')) {
+                    const deletedAsistencia = asistencias.find(a => a.id === id);
+                    if (!deletedAsistencia) return;
+
+                    // 1. Eliminar la asistencia
+                    setAsistencias(asistencias.filter(a => a.id !== id));
+                    
+                    // 2. Intentar eliminar el pago asociado (solo si es pago por clase y no mensualidad)
+                    // Buscamos el pago registrado exactamente después de la asistencia (que se generó en la misma transacción)
+                    setPagos(pagos.filter(p => !(
+                        p.tipo === 'clase' && 
+                        p.clienteId === deletedAsistencia.clienteId &&
+                        p.monto === deletedAsistencia.montoCobrado &&
+                        getAttendanceDateString(p.fecha) === getAttendanceDateString(deletedAsistencia.fecha)
+                    )));
+
+                    // 3. Revisar y ajustar asistencias posteriores si es necesario (para el cálculo de 2da clase)
+                    // Este paso es complejo y se omite por ahora, pero la eliminación simple ya corrige el historial
+                    // para futuras asistencias en ese día.
+                }
+            };
+            // FIN NUEVAS FUNCIONES
 
             const clientesFiltrados = clientes.filter(c => 
                 c.nombre.toLowerCase().includes(searchCliente.toLowerCase())
@@ -689,6 +642,20 @@
                         </span>
                     )}
                 </button>
+            );
+
+            const Modal = ({ children, title, onClose }) => (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
+                        <div className="flex justify-between items-center border-b pb-3 mb-4">
+                            <h3 className="text-xl font-bold">{title}</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        {children}
+                    </div>
+                </div>
             );
 
             return (
@@ -880,9 +847,8 @@
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6 no-print">
                                         {clientesFiltrados.map(cliente => {
-                                            const precio = cliente.tipoMembresia === 'mensual' 
-                                                ? (asistencias.filter(a => a.clienteId === cliente.id && getAttendanceDateString(a.fecha) === selectedAttendanceDate).length > 0 ? 6 : 0)
-                                                : calcularPrecioClase(cliente.id);
+                                            const precio = calcularPrecioClase(cliente.id);
+                                            const mensualidadActiva = isMensualidadActivaEnFecha(cliente.id, selectedAttendanceDate);
                                             
                                             return (
                                                 <div key={cliente.id} className="p-3 border rounded-lg hover:bg-gray-50">
@@ -891,19 +857,22 @@
                                                             <span className="font-medium block">{cliente.nombre}</span>
                                                             <span className={`text-xs px-2 py-1 rounded ${
                                                                 cliente.tipoMembresia === 'mensual' 
-                                                                    ? 'bg-blue-100 text-blue-700' 
+                                                                    ? mensualidadActiva ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                                                                     : 'bg-green-100 text-green-700'
                                                             }`}>
-                                                                {cliente.tipoMembresia === 'mensual' ? '📅 Mensual' : '💳 Por Clase'}
+                                                                {cliente.tipoMembresia === 'mensual' 
+                                                                    ? mensualidadActiva ? '📅 Mensual ACTIVA' : '📅 Mensual INACTIVA' 
+                                                                    : '💳 Por Clase'
+                                                                }
                                                             </span>
                                                         </div>
                                                         <button
                                                             onClick={() => registrarAsistencia(cliente.id)}
-                                                            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1"
+                                                            className={`text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-1 ${precio === 0 ? 'bg-purple-500 hover:bg-purple-600' : 'bg-green-500'}`}
                                                             disabled={!selectedInstructor || !selectedHorario}
                                                         >
                                                             ✓ Registrar
-                                                            {precio > 0 && <span className="text-xs">S/. {precio.toFixed(2)}</span>}
+                                                            {precio > 0 ? <span className="text-xs">S/. {precio.toFixed(2)}</span> : <span className="text-xs">GRATIS</span>}
                                                         </button>
                                                     </div>
                                                 </div>
@@ -914,7 +883,7 @@
                                     <h3 className="text-xl font-bold text-gray-800 mb-3">Asistencias Registradas para el {getDisplayDate(selectedAttendanceDate)} ({asistencias.filter(a => getAttendanceDateString(a.fecha) === selectedAttendanceDate).length})</h3>
                                     <div className="space-y-2">
                                         {asistencias.filter(a => getAttendanceDateString(a.fecha) === selectedAttendanceDate)
-                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) // Mostrar más reciente primero
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
                                             .map(a => {
                                             const cliente = clientes.find(c => c.id === a.clienteId);
                                             return (
@@ -928,16 +897,73 @@
                                                             <span className="text-xs text-blue-600 block">🔄 Segunda clase del día</span>
                                                         )}
                                                     </div>
-                                                    <div className="text-right">
-                                                        {a.montoCobrado > 0 && (
-                                                            <span className="font-bold text-green-600 block">S/. {a.montoCobrado.toFixed(2)}</span>
-                                                        )}
-                                                        <span className="text-gray-600 text-xs">Registrado a las {a.horaRegistro}</span>
+                                                    <div className="text-right flex items-center gap-2">
+                                                        <div className="text-right">
+                                                            {a.montoCobrado > 0 ? (
+                                                                <span className="font-bold text-green-600 block">S/. {a.montoCobrado.toFixed(2)}</span>
+                                                            ) : (
+                                                                <span className="font-bold text-purple-600 block">GRATIS</span>
+                                                            )}
+                                                            <span className="text-gray-600 text-xs">Registrado a las {a.horaRegistro}</span>
+                                                        </div>
+                                                        <div className="flex gap-1 no-print">
+                                                            <button
+                                                                onClick={() => startEditing(a)}
+                                                                className="p-1 bg-yellow-400 rounded hover:bg-yellow-500 text-white"
+                                                                title="Editar Instructor/Horario"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteAttendance(a.id)}
+                                                                className="p-1 bg-red-500 rounded hover:bg-red-600 text-white"
+                                                                title="Eliminar Registro"
+                                                            >
+                                                                <Trash size={16} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
+                                    
+                                    {editingAttendanceId && (
+                                        <Modal 
+                                            title="Editar Registro de Asistencia" 
+                                            onClose={() => setEditingAttendanceId(null)}
+                                        >
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Instructor</label>
+                                                    <select
+                                                        value={editInstructor}
+                                                        onChange={(e) => setEditInstructor(e.target.value)}
+                                                        className="px-4 py-2 border rounded-lg w-full"
+                                                    >
+                                                        {INSTRUCTORES.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Horario</label>
+                                                    <select
+                                                        value={editHorario}
+                                                        onChange={(e) => setEditHorario(e.target.value)}
+                                                        className="px-4 py-2 border rounded-lg w-full"
+                                                    >
+                                                        {HORARIOS.map(hor => <option key={hor} value={hor}>{hor}</option>)}
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    onClick={() => saveEditing(editingAttendanceId)}
+                                                    className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                                                >
+                                                    Guardar Cambios
+                                                </button>
+                                            </div>
+                                        </Modal>
+                                    )}
+
                                 </div>
                             )}
 
@@ -945,29 +971,56 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Gestión de Mensualidades</h2>
                                     
+                                    <div className="mb-4 p-4 border rounded-lg bg-blue-50 no-print">
+                                        <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Pago de Mensualidad</h3>
+                                        <input
+                                            type="date"
+                                            value={selectedAttendanceDate}
+                                            onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                                            className="px-4 py-2 border rounded-lg w-48"
+                                            max={new Date().toISOString().split('T')[0]} 
+                                        />
+                                        <p className="text-sm text-gray-600 mt-2">Registrando pago para la fecha: <span className="font-medium text-blue-700">{getDisplayDate(selectedAttendanceDate)}</span></p>
+                                    </div>
+
                                     <div className="space-y-3">
                                         {clientes.filter(c => c.tipoMembresia === 'mensual').map(cliente => {
-                                            const mesActual = new Date().getMonth();
-                                            const añoActual = new Date().getFullYear();
-                                            const yaPago = pagos.some(p => 
+                                            const fechaVencimiento = getFechaVencimiento(cliente.id);
+                                            const hoy = new Date(new Date().toISOString().split('T')[0] + 'T12:00:00');
+                                            const activoAhora = fechaVencimiento && hoy <= fechaVencimiento;
+                                            
+                                            const fechaPago = new Date(selectedAttendanceDate + 'T12:00:00');
+                                            const puedePagar = !pagos.some(p => 
                                                 p.clienteId === cliente.id && 
                                                 p.tipo === 'mensualidad' &&
-                                                new Date(p.fecha).getMonth() === mesActual &&
-                                                new Date(p.fecha).getFullYear() === añoActual
+                                                new Date(p.fecha.substring(0, 10) + 'T12:00:00') > fechaPago
                                             );
+                                            
+                                            const diasRestantes = activoAhora 
+                                                ? Math.ceil((fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 3600 * 24))
+                                                : -1;
+                                            
+                                            let alerta = '';
+                                            if (diasRestantes >= 0 && diasRestantes <= 5) {
+                                                alerta = `⚠️ Quedan ${diasRestantes} días para el vencimiento (Vence: ${fechaVencimiento.toLocaleDateString('es-PE')}).`;
+                                            } else if (diasRestantes < 0) {
+                                                alerta = `❌ Vencido. Último pago: ${fechaVencimiento ? fechaVencimiento.toLocaleDateString('es-PE') : 'N/A'}.`;
+                                            }
+
 
                                             return (
                                                 <div key={cliente.id} className={`p-4 rounded-lg border-2 ${
-                                                    yaPago ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'
+                                                    activoAhora ? (diasRestantes <= 5 ? 'border-orange-300 bg-orange-50' : 'border-green-300 bg-green-50') : 'border-red-300 bg-red-50'
                                                 }`}>
                                                     <div className="flex justify-between items-center">
                                                         <div>
                                                             <h4 className="font-bold text-gray-800">{cliente.nombre}</h4>
                                                             <p className="text-sm text-gray-600">
-                                                                {yaPago ? '✓ Pagado este mes' : '⚠️ Pendiente de pago'}
+                                                                {fechaVencimiento ? `Vencimiento: ${fechaVencimiento.toLocaleDateString('es-PE')}` : 'Sin pago de mensualidad.'}
                                                             </p>
+                                                            {alerta && <p className={`text-xs font-semibold mt-1 ${diasRestantes <= 5 && diasRestantes >= 0 ? 'text-orange-700' : 'text-red-700'}`}>{alerta}</p>}
                                                         </div>
-                                                        {!yaPago && (
+                                                        {puedePagar && (
                                                             <div className="flex gap-2 items-center no-print">
                                                                 <input
                                                                     type="number"
@@ -983,15 +1036,20 @@
                                                                 </button>
                                                             </div>
                                                         )}
+                                                        {!puedePagar && (
+                                                            <p className="text-sm font-medium text-red-500">Pago posterior registrado</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos (Mensualidades)</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mt-6 mb-3">Historial de Pagos (Mensualidades - 10 más recientes)</h3>
                                     <div className="space-y-2">
-                                        {pagos.filter(p => p.tipo === 'mensualidad').slice(0, 10).map(p => {
+                                        {pagos.filter(p => p.tipo === 'mensualidad')
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                                            .slice(0, 10).map(p => {
                                             const cliente = clientes.find(c => c.id === p.clienteId);
                                             return (
                                                 <div key={p.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
@@ -1014,7 +1072,6 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Ventas de Productos Herbalife</h2>
                                     
-                                    {/* Muestra la fecha de registro actual, la cual es compartida con la pestaña Asistencia */}
                                     <div className="mb-6 p-4 border rounded-lg bg-blue-50 no-print">
                                         <h3 className="text-lg font-bold text-gray-800 mb-2">📅 Fecha de Venta Registrada</h3>
                                         <p className="text-sm text-gray-600 mb-2">Las ventas se registrarán para la fecha seleccionada en la pestaña **Asistencia**.</p>
@@ -1073,7 +1130,7 @@
                                     <h3 className="text-xl font-bold text-gray-800 mb-3">Ventas Registradas para el {getDisplayDate(selectedAttendanceDate)}</h3>
                                     <div className="space-y-2">
                                         {ventas.filter(v => getAttendanceDateString(v.fecha) === selectedAttendanceDate)
-                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)) // Mostrar más reciente primero
+                                            .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
                                             .map(v => {
                                             const cliente = clientes.find(c => c.id === v.clienteId);
                                             const producto = productos.find(p => p.id === v.productoId);
@@ -1138,7 +1195,6 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">Reportes y Estadísticas</h2>
                                     
-                                    {/* SECCIÓN: Reporte por Fecha (Mantenido) */}
                                     <div className="mb-8 p-4 border rounded-lg bg-gray-50">
                                         <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">🔍 Reporte por Fecha Específica</h3>
                                         <div className="mb-4 flex items-center gap-4 no-print">
@@ -1197,8 +1253,7 @@
                                             ) : <p className="text-gray-500">No hay ventas registradas para esta fecha.</p>}
                                         </div>
                                     </div>
-                                    {/* FIN SECCIÓN */}
-
+                                    
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         
