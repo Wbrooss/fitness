@@ -181,7 +181,7 @@
         );
         
         // ==========================================================
-        // FUNCIONES GLOBALES DE EXPORTACIÓN (CORRECCIÓN)
+        // FUNCIONES GLOBALES DE EXPORTACIÓN
         // ==========================================================
 
         const exportarAExcel = () => {
@@ -404,6 +404,222 @@
             );
         };
         
+        // ==========================================================
+        // LÓGICA DE GRÁFICOS (KPIs)
+        // ==========================================================
+        
+        // Función para obtener un rango de fechas de los últimos N días
+        const getFechaRango = (days) => {
+            const dates = [];
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                dates.push(d.toISOString().split('T')[0]);
+            }
+            return dates;
+        }
+
+        // KPI 1: Ingresos Diarios Totales (Últimos 30 días)
+        const procesarIngresosDiarios = (pagos, ventas) => {
+            const last30Days = getFechaRango(30);
+            const ingresosPorDia = {};
+            
+            // Inicializar cada día con 0
+            last30Days.forEach(date => {
+                ingresosPorDia[date] = 0;
+            });
+
+            // Agregar pagos
+            pagos.forEach(p => {
+                const date = p.fecha ? p.fecha.substring(0, 10) : null;
+                if (date && ingresosPorDia.hasOwnProperty(date)) {
+                    ingresosPorDia[date] += p.monto;
+                }
+            });
+
+            // Agregar ventas
+            ventas.forEach(v => {
+                const date = v.fecha ? v.fecha.substring(0, 10) : null;
+                if (date && ingresosPorDia.hasOwnProperty(date)) {
+                    ingresosPorDia[date] += v.total;
+                }
+            });
+
+            const labels = last30Days.map(date => {
+                const [year, month, day] = date.split('-');
+                return `${day}/${month}`;
+            });
+            const dataValues = last30Days.map(date => ingresosPorDia[date]);
+
+            return {
+                labels: labels,
+                datasets: [{
+                    label: 'Ingreso Diario Total (S/.)',
+                    data: dataValues,
+                    borderColor: 'rgb(126, 34, 206)', // Púrpura
+                    backgroundColor: 'rgba(126, 34, 206, 0.5)',
+                    tension: 0.3,
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 3
+                }]
+            };
+        };
+        
+        // KPI 2: Ingresos por Fuente (Total histórico)
+        const procesarIngresosPorFuente = (pagos, ventas) => {
+            let totalMensualidad = 0;
+            let totalClase = 0; // Incluye clase normal y clase extra mensualidad
+            let totalProductos = 0;
+            
+            pagos.forEach(p => {
+                if (p.tipo === 'mensualidad') {
+                    totalMensualidad += p.monto;
+                } else if (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad') {
+                    totalClase += p.monto;
+                }
+            });
+            
+            ventas.forEach(v => {
+                totalProductos += v.total;
+            });
+            
+            return {
+                labels: ['Mensualidades', 'Clases', 'Ventas de Productos'],
+                datasets: [{
+                    data: [totalMensualidad, totalClase, totalProductos],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.8)', // Azul/Verde (Mensualidad)
+                        'rgba(255, 99, 132, 0.8)',  // Rojo (Clases)
+                        'rgba(255, 205, 86, 0.8)'   // Amarillo (Productos)
+                    ],
+                    borderColor: [
+                        'rgb(75, 192, 192)',
+                        'rgb(255, 99, 132)',
+                        'rgb(255, 205, 86)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+        };
+
+        // KPI 3: Clientes Mensuales Activos vs. Inactivos (Gráfico de Dona)
+        const procesarEstadoMensual = (clientes, getFechaVencimiento) => {
+            const clientesMensuales = clientes.filter(c => c.tipoMembresia === 'mensual');
+            const hoy = new Date(new Date().toISOString().split('T')[0] + 'T12:00:00');
+            let activos = 0;
+            let inactivos = 0;
+
+            clientesMensuales.forEach(cliente => {
+                // Se debe llamar a getFechaVencimiento desde el componente principal o pasarlo como prop. 
+                // Aquí lo pasamos al componente, pero la función depende de los "pagos", así que la lógica es mejor en el componente principal.
+                // Como esta función está fuera, la refactorizamos para recibir solo lo necesario y la lógica de vencimiento pasa al componente principal
+                // Para mantenerla simple, la dejaremos en el componente principal y aquí solo calculamos el estado. 
+                // Por ahora, asumimos que getFechaVencimiento se pasa (aunque en el código de arriba no lo necesita, lo dejaremos para la llamada).
+                // Mejor, la función se queda fuera y recibe los datos.
+
+                const pagos = JSON.parse(localStorage.getItem('pagos') || '[]');
+                const getFechaVencimientoLocal = (clienteId) => {
+                    const pagosMensuales = pagos.filter(p => p.clienteId === clienteId && p.tipo === 'mensualidad')
+                        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+                    if (pagosMensuales.length === 0) return null;
+
+                    const ultimoPagoDate = new Date(pagosMensuales[0].fecha.substring(0, 10) + 'T12:00:00');
+                    const fechaVencimiento = new Date(ultimoPagoDate);
+                    fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1);
+                    fechaVencimiento.setDate(fechaVencimiento.getDate() - 1); 
+                    
+                    return fechaVencimiento;
+                }
+
+                const fechaVencimiento = getFechaVencimientoLocal(cliente.id);
+                if (fechaVencimiento && hoy <= fechaVencimiento) {
+                    activos++;
+                } else {
+                    inactivos++;
+                }
+            });
+
+            return {
+                labels: [`Activos (${activos})`, `Inactivos (${inactivos})`],
+                datasets: [{
+                    data: [activos, inactivos],
+                    backgroundColor: [
+                        'rgba(52, 211, 153, 0.8)', // Verde (Activos)
+                        'rgba(248, 113, 113, 0.8)'  // Rojo (Inactivos)
+                    ],
+                    borderColor: [
+                        'rgb(52, 211, 153)',
+                        'rgb(248, 113, 113)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+        };
+
+        // KPI 4: Cálculo de la Tasa de Renovación Mensual
+        const calcularTasaRenovacion = (clientes, pagos) => {
+            const hoy = new Date();
+            // 1. Definir el mes objetivo: Mes anterior
+            const mesPasado = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+            const primerDiaMesPasado = new Date(mesPasado.getFullYear(), mesPasado.getMonth(), 1, 12);
+            const ultimoDiaMesPasado = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 12); 
+
+            // 2. Clientes que debieron renovar: Tuvieron membresía activa en el mes pasado
+            const clientesPotenciales = new Set();
+            pagos.filter(p => p.tipo === 'mensualidad').forEach(p => {
+                const fechaPago = new Date(p.fecha.substring(0, 10) + 'T12:00:00');
+                
+                // La membresía cubre el mes siguiente al pago
+                const fechaInicio = new Date(fechaPago.getFullYear(), fechaPago.getMonth(), 1, 12);
+                
+                const fechaFin = new Date(fechaPago);
+                fechaFin.setMonth(fechaFin.getMonth() + 1);
+                fechaFin.setDate(fechaFin.getDate() - 1); 
+                fechaFin.setHours(12);
+
+                // Si la membresía estaba activa en algún momento del mes pasado (i.e., el rango de pago cubre el mes pasado)
+                if (fechaFin >= primerDiaMesPasado && fechaInicio <= ultimoDiaMesPasado) {
+                    clientesPotenciales.add(p.clienteId);
+                }
+            });
+            
+            const countClientesPotenciales = clientesPotenciales.size;
+
+            if (countClientesPotenciales === 0) {
+                return { tasa: 0, renovaron: 0, potenciales: 0, mensaje: "No hay datos de renovaciones del mes pasado." };
+            }
+
+            // 3. Clientes que renovaron: Tuvieron un pago de mensualidad *en el mes actual*
+            const primerDiaMesActual = new Date(hoy.getFullYear(), hoy.getMonth(), 1, 12);
+            
+            const pagosEsteMes = pagos.filter(p => 
+                p.tipo === 'mensualidad' && 
+                new Date(p.fecha.substring(0, 10) + 'T12:00:00') >= primerDiaMesActual
+            );
+
+            const clientesQueRenovaron = new Set();
+            pagosEsteMes.forEach(p => {
+                // Solo contamos a los que renovaron y eran potenciales (asumiendo que si pagaron, renovaron)
+                if (clientesPotenciales.has(p.clienteId)) {
+                    clientesQueRenovaron.add(p.clienteId);
+                }
+            });
+            
+            const countClientesQueRenovaron = clientesQueRenovaron.size;
+            
+            const tasa = (countClientesQueRenovaron / countClientesPotenciales) * 100;
+
+            return { 
+                tasa: tasa.toFixed(2), 
+                renovaron: countClientesQueRenovaron, 
+                potenciales: countClientesPotenciales,
+                mensaje: `Base de ${countClientesPotenciales} clientes potenciales a renovar (que tuvieron mensualidad en el mes pasado).`
+            };
+        };
+
+
         // ==========================================================
         // APLICACIÓN PRINCIPAL
         // ==========================================================
@@ -853,141 +1069,19 @@
             const totalVentasReporte = ventasReporte.reduce((sum, v) => sum + v.total, 0);
             const totalPagosReporte = pagosReporte.reduce((sum, p) => sum + p.monto, 0);
             const totalIngresosReporte = totalVentasReporte + totalPagosReporte;
-            // FIN LÓGICA DE FILTRADO
             
             // ==========================================================
-            // LÓGICA DE GRÁFICOS (KPIs)
+            // LLAMADAS A LÓGICA DE GRÁFICOS (KPIs)
             // ==========================================================
+            // KPI 1 & 2
+            const dataIngresosDiarios = procesarIngresosDiarios(pagos, ventas);
+            const dataIngresosPorFuente = procesarIngresosPorFuente(pagos, ventas);
             
-            // Función para obtener un rango de fechas de los últimos N días
-            const getFechaRango = (days) => {
-                const dates = [];
-                for (let i = days - 1; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(d.getDate() - i);
-                    dates.push(d.toISOString().split('T')[0]);
-                }
-                return dates;
-            }
+            // KPI 3: Estado de Clientes Mensuales
+            const dataEstadoMensual = procesarEstadoMensual(clientes, getFechaVencimiento);
 
-            // KPI 1: Ingresos Diarios Totales (Últimos 30 días)
-            const procesarIngresosDiarios = () => {
-                const last30Days = getFechaRango(30);
-                const ingresosPorDia = {};
-                
-                // Inicializar cada día con 0
-                last30Days.forEach(date => {
-                    ingresosPorDia[date] = 0;
-                });
-
-                // Agregar pagos
-                pagos.forEach(p => {
-                    const date = getAttendanceDateString(p.fecha);
-                    if (ingresosPorDia.hasOwnProperty(date)) {
-                        ingresosPorDia[date] += p.monto;
-                    }
-                });
-
-                // Agregar ventas
-                ventas.forEach(v => {
-                    const date = getAttendanceDateString(v.fecha);
-                    if (ingresosPorDia.hasOwnProperty(date)) {
-                        ingresosPorDia[date] += v.total;
-                    }
-                });
-
-                const labels = last30Days.map(date => {
-                    const [year, month, day] = date.split('-');
-                    return `${day}/${month}`;
-                });
-                const dataValues = last30Days.map(date => ingresosPorDia[date]);
-
-                return {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Ingreso Diario Total (S/.)',
-                        data: dataValues,
-                        borderColor: 'rgb(126, 34, 206)', // Púrpura
-                        backgroundColor: 'rgba(126, 34, 206, 0.5)',
-                        tension: 0.3,
-                        borderWidth: 2,
-                        fill: true,
-                        pointRadius: 3
-                    }]
-                };
-            };
-            
-            // KPI 2: Ingresos por Fuente (Total histórico)
-            const procesarIngresosPorFuente = () => {
-                let totalMensualidad = 0;
-                let totalClase = 0; // Incluye clase normal y clase extra mensualidad
-                let totalProductos = 0;
-                
-                pagos.forEach(p => {
-                    if (p.tipo === 'mensualidad') {
-                        totalMensualidad += p.monto;
-                    } else if (p.tipo === 'clase' || p.tipo === 'clase_extra_mensualidad') {
-                        totalClase += p.monto;
-                    }
-                });
-                
-                ventas.forEach(v => {
-                    totalProductos += v.total;
-                });
-                
-                return {
-                    labels: ['Mensualidades', 'Clases', 'Ventas de Productos'],
-                    datasets: [{
-                        data: [totalMensualidad, totalClase, totalProductos],
-                        backgroundColor: [
-                            'rgba(75, 192, 192, 0.8)', // Azul/Verde (Mensualidad)
-                            'rgba(255, 99, 132, 0.8)',  // Rojo (Clases)
-                            'rgba(255, 205, 86, 0.8)'   // Amarillo (Productos)
-                        ],
-                        borderColor: [
-                            'rgb(75, 192, 192)',
-                            'rgb(255, 99, 132)',
-                            'rgb(255, 205, 86)'
-                        ],
-                        borderWidth: 1
-                    }]
-                };
-            };
-
-            const TabButton = ({ id, icon: Icon, label, count }) => (
-                <button
-                    onClick={() => setActiveTab(id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${
-                        activeTab === id 
-                            ? 'bg-purple-600 text-white shadow-lg' 
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                >
-                    <Icon size={20} />
-                    <span className="font-medium">{label}</span>
-                    {count !== undefined && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            activeTab === id ? 'bg-purple-500' : 'bg-gray-200'
-                        }`}>
-                            {count}
-                        </span>
-                    )}
-                </button>
-            );
-
-            const Modal = ({ children, title, onClose }) => (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg">
-                        <div className="flex justify-between items-center border-b pb-3 mb-4">
-                            <h3 className="text-xl font-bold">{title}</h3>
-                            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                                <X size={24} />
-                            </button>
-                        </div>
-                        {children}
-                    </div>
-                </div>
-            );
+            // KPI 4: Tasa de Renovación
+            const kpiRenovacion = calcularTasaRenovacion(clientes, pagos);
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
@@ -1526,33 +1620,35 @@
                                 <div>
                                     <h2 className="text-2xl font-bold text-gray-800 mb-6">📈 Panel de Control (Dashboard)</h2>
                                     
-                                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Ingresos y Distribución</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Ingresos y Clientes Mensuales</h3>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                        {/* GRÁFICO 1: Ingresos Diarios */}
-                                        <DashboardChart 
-                                            type="line"
-                                            data={procesarIngresosDiarios()}
-                                            options={{
-                                                scales: {
-                                                    y: {
-                                                        beginAtZero: true,
-                                                        title: { display: true, text: 'Monto (S/.)' }
-                                                    },
-                                                    x: {
-                                                        title: { display: true, text: 'Fecha' }
+                                    {/* Nueva distribución: 2 columnas (Línea) + 1 columna (Dona Ingresos) + 1 columna (Dona Clientes) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                                        {/* GRÁFICO 1: Ingresos Diarios (Ocupa 2 columnas) */}
+                                        <div className="md:col-span-2">
+                                            <DashboardChart 
+                                                type="line"
+                                                data={dataIngresosDiarios}
+                                                options={{
+                                                    scales: {
+                                                        y: {
+                                                            beginAtZero: true,
+                                                            title: { display: true, text: 'Monto (S/.)' }
+                                                        },
+                                                        x: {
+                                                            title: { display: true, text: 'Fecha' }
+                                                        }
                                                     }
-                                                }
-                                            }}
-                                            title="Ingreso Diario Total (Últimos 30 Días)"
-                                        />
+                                                }}
+                                                title="Ingreso Diario Total (Últimos 30 Días)"
+                                            />
+                                        </div>
 
-                                        {/* GRÁFICO 2: Ingresos por Fuente */}
+                                        {/* GRÁFICO 2: Ingresos por Fuente (Ocupa 1 columna) */}
                                         <DashboardChart 
                                             type="doughnut"
-                                            data={procesarIngresosPorFuente()}
+                                            data={dataIngresosPorFuente}
                                             options={{
-                                                // La leyenda ya se mueve a la derecha por el tipo de gráfico
                                                 plugins: {
                                                     tooltip: {
                                                         callbacks: {
@@ -1575,8 +1671,47 @@
                                             }}
                                             title="Distribución Total de Ingresos"
                                         />
-                                    </div>
 
+                                        {/* NUEVO GRÁFICO 3: Estado de Clientes Mensuales (Ocupa 1 columna) */}
+                                        <DashboardChart 
+                                            type="doughnut"
+                                            data={dataEstadoMensual}
+                                            options={{}}
+                                            title="Estado de Clientes Mensuales"
+                                        />
+                                    </div>
+                                    
+                                    {/* NUEVA SECCIÓN DE LEALTAD Y RETENCIÓN */}
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 mt-8">Lealtad y Retención</h3>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                        {/* KPI Tasa de Renovación (Ocupa 1 columna) */}
+                                        <div className="p-4 bg-purple-50 rounded-lg shadow-md h-full flex flex-col justify-center items-center">
+                                            <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">Tasa de Renovación Mensual</h3>
+                                            <p className="text-5xl font-extrabold" style={{ color: parseFloat(kpiRenovacion.tasa) >= 70 ? 'rgb(52, 211, 153)' : 'rgb(248, 113, 113)' }}>
+                                                {kpiRenovacion.tasa}%
+                                            </p>
+                                            <p className="text-sm text-gray-600 mt-2 text-center">
+                                                **{kpiRenovacion.renovaron}** de **{kpiRenovacion.potenciales}** clientes renovaron este mes.
+                                            </p>
+                                        </div>
+
+                                        {/* Bloque de Clientes Mensuales Totales */}
+                                        <div className="bg-purple-100 p-4 rounded-lg shadow-md flex flex-col justify-center">
+                                            <p className="text-sm text-gray-600">Total de Clientes con Membresía Mensual</p>
+                                            <p className="text-5xl font-bold text-purple-700 mt-2">{clientes.filter(c => c.tipoMembresia === 'mensual').length}</p>
+                                            <p className="text-sm text-gray-500 mt-2">Clientes registrados con esta opción.</p>
+                                        </div>
+
+                                        {/* Bloque de Ingreso Promedio (Opción para futuro, por ahora vacío para dejar espacio) */}
+                                        <div className="bg-gray-100 p-4 rounded-lg shadow-md flex flex-col justify-center">
+                                            <p className="text-sm text-gray-500">Próxima Métrica (Por implementar)</p>
+                                            <p className="text-2xl font-bold text-gray-400 mt-2">Métricas de Valor de Cliente</p>
+                                            <p className="text-sm text-gray-500 mt-2">Ej. Ingreso promedio por cliente (ARPU).</p>
+                                        </div>
+                                    </div>
+                                    {/* FIN SECCIÓN LEALTAD Y RETENCIÓN */}
+                                    
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen por Fecha Seleccionada</h3>
                                     
                                     {/* Controles de Reporte (se mantiene el reporte por fecha específica) */}
@@ -1638,7 +1773,7 @@
                                         </div>
                                     </div>
 
-                                    {/* MANTENEMOS EL RESUMEN GENERAL ABAJO */}
+                                    {/* RESUMEN GENERAL HISTÓRICO */}
                                     <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2 mt-8">Resumen General Histórico</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         
